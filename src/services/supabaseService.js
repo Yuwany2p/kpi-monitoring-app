@@ -1,416 +1,324 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { calculateAchievement, getStatusByScore } from '../lib/formatters';
+import { supabase } from '../lib/supabaseClient';
 
 /**
- * Service Layer untuk menghubungkan Frontend langsung dengan Database Supabase.
- * Mengembalikan data murni dari database tanpa mencampurkan data dummy.
+ * Service layer: semua akses data ke Supabase ada di sini.
+ * Setiap fungsi melempar Error jika gagal supaya halaman bisa
+ * menampilkan pesan yang jelas (bukan diam-diam mengembalikan []).
+ * Hak akses per role dijaga oleh Row Level Security di database.
  */
 
-// 1. PROFILES & TEAMS
-export const getProfiles = async () => {
-  if (!isSupabaseConfigured || !supabase) return [];
-  try {
-    const { data, error } = await supabase
+const unwrap = ({ data, error }) => {
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+// --------------------------------------------------------------------
+// Profil, tim, periode
+// --------------------------------------------------------------------
+export const getProfile = async (userId) =>
+  unwrap(
+    await supabase
       .from('profiles')
-      .select('*, teams(id, name)')
-      .eq('is_active', true);
+      .select('id, full_name, email, role, team_id, is_active, teams:team_id (id, name)')
+      .eq('id', userId)
+      .single()
+  );
 
-    if (error) {
-      console.error('Error getProfiles:', error.message);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Error getProfiles:', err);
-    return [];
-  }
+export const getTeams = async () =>
+  unwrap(await supabase.from('teams').select('id, name, supervisor_id').order('name'));
+
+export const getPeriods = async () =>
+  unwrap(
+    await supabase
+      .from('periods')
+      .select('id, name, start_date, end_date, status')
+      .order('start_date', { ascending: true })
+  );
+
+/** Staf aktif dalam satu tim (atau semua tim jika teamId kosong). */
+export const getStaff = async (teamId) => {
+  let query = supabase
+    .from('profiles')
+    .select('id, full_name, team_id, teams:team_id (name)')
+    .eq('role', 'staf')
+    .eq('is_active', true)
+    .order('full_name');
+  if (teamId) query = query.eq('team_id', teamId);
+  return unwrap(await query);
 };
 
-// 2. MASTER INDIKATOR KPI
-export const getKpiIndicators = async () => {
-  if (!isSupabaseConfigured || !supabase) return [];
-  try {
-    const { data, error } = await supabase
-      .from('kpi_indicators')
-      .select('*')
-      .eq('is_active', true)
-      .order('code', { ascending: true });
-
-    if (error) {
-      console.error('Error getKpiIndicators:', error.message);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Error getKpiIndicators:', err);
-    return [];
-  }
+/** Anggota tim + supervisornya (untuk pilihan penanggung jawab). */
+export const getTeamMembers = async (teamId) => {
+  let query = supabase
+    .from('profiles')
+    .select('id, full_name, role')
+    .eq('is_active', true)
+    .in('role', ['staf', 'supervisor'])
+    .order('full_name');
+  if (teamId) query = query.eq('team_id', teamId);
+  return unwrap(await query);
 };
 
-export const createKpiIndicator = async (indicator) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: 'Supabase belum dikonfigurasi' };
-  }
-  try {
-    const { data, error } = await supabase
-      .from('kpi_indicators')
-      .insert([indicator])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (err) {
-    console.error('Error createKpiIndicator:', err);
-    return { success: false, error: err.message };
-  }
+// --------------------------------------------------------------------
+// Master indikator KPI
+// --------------------------------------------------------------------
+export const getKpiIndicators = async ({ includeInactive = false } = {}) => {
+  let query = supabase.from('kpi_indicators').select('*').order('code');
+  if (!includeInactive) query = query.eq('is_active', true);
+  return unwrap(await query);
 };
 
-export const updateKpiIndicator = async (id, updates) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: 'Supabase belum dikonfigurasi' };
-  }
-  try {
-    const { data, error } = await supabase
-      .from('kpi_indicators')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+export const createKpiIndicator = async (indicator) =>
+  unwrap(await supabase.from('kpi_indicators').insert([indicator]).select().single());
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (err) {
-    console.error('Error updateKpiIndicator:', err);
-    return { success: false, error: err.message };
-  }
-};
+export const updateKpiIndicator = async (id, updates) =>
+  unwrap(await supabase.from('kpi_indicators').update(updates).eq('id', id).select().single());
 
-export const deleteKpiIndicator = async (id) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: 'Supabase belum dikonfigurasi' };
-  }
-  try {
-    const { error } = await supabase
-      .from('kpi_indicators')
-      .delete()
-      .eq('id', id);
+export const setKpiIndicatorActive = async (id, isActive) =>
+  updateKpiIndicator(id, { is_active: isActive });
 
-    if (error) throw error;
-    return { success: true };
-  } catch (err) {
-    console.error('Error deleteKpiIndicator:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-// 3. TARGET KPI MATRIX
-export const getKpiTargets = async (periodId) => {
-  if (!isSupabaseConfigured || !supabase) return [];
-  try {
-    let query = supabase
+// --------------------------------------------------------------------
+// Target per staf
+// --------------------------------------------------------------------
+export const getKpiTargets = async (periodId) =>
+  unwrap(
+    await supabase
       .from('kpi_targets')
-      .select(`
-        id,
-        target_value,
-        staff_id,
-        indicator_id,
-        period_id,
-        profiles (id, full_name),
-        kpi_indicators (id, code, name, unit, direction)
-      `);
+      .select('id, indicator_id, staff_id, period_id, target_value')
+      .eq('period_id', periodId)
+  );
 
-    if (periodId) {
-      query = query.eq('period_id', periodId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
-  } catch (err) {
-    console.warn('Error getKpiTargets:', err);
-    return [];
-  }
-};
-
-export const upsertKpiTarget = async (targetData) => {
-  if (!isSupabaseConfigured || !supabase) return { success: false };
-  try {
-    const { data, error } = await supabase
+/** rows: [{ indicator_id, staff_id, period_id, target_value, created_by }] */
+export const upsertKpiTargets = async (rows) => {
+  if (!rows.length) return [];
+  return unwrap(
+    await supabase
       .from('kpi_targets')
-      .upsert(targetData, { onConflict: 'indicator_id,staff_id,period_id' })
-      .select();
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (err) {
-    console.error('Error upsertKpiTarget:', err);
-    return { success: false, error: err.message };
-  }
+      .upsert(rows, { onConflict: 'indicator_id,staff_id,period_id' })
+      .select()
+  );
 };
 
-// 4. REALISASI & VALIDASI DATA
-export const getActualsForValidation = async (statusFilter = null) => {
-  if (!isSupabaseConfigured || !supabase) return [];
-  try {
-    let query = supabase
-      .from('kpi_actuals')
-      .select(`
-        id,
-        actual_value,
-        notes,
-        evidence_url,
-        status,
-        submitted_at,
-        kpi_targets (
-          id,
-          target_value,
-          profiles (id, full_name),
-          kpi_indicators (id, code, name, unit, direction)
-        ),
-        kpi_scores (
-          achievement_pct,
-          status_color
-        )
-      `)
-      .order('submitted_at', { ascending: false });
-
-    if (statusFilter) {
-      query = query.eq('status', statusFilter);
-    }
-
-    const { data, error } = await query;
-
-    if (error || !data) {
-      console.error('Error getActualsForValidation:', error?.message);
-      return [];
-    }
-
-    // Format data murni dari database
-    return data.map((item) => {
-      const target = item.kpi_targets;
-      const indicator = target?.kpi_indicators;
-      const staff = target?.profiles;
-      const score = item.kpi_scores?.[0] || item.kpi_scores;
-
-      const achievement = score?.achievement_pct ?? (
-        indicator && target?.target_value && item.actual_value
-          ? calculateAchievement(item.actual_value, target.target_value, indicator.direction)
-          : 0
-      );
-
-      const statusColor = score?.status_color ?? getStatusByScore(achievement).color;
-
-      return {
-        id: item.id,
-        staff_name: staff?.full_name || 'Staf',
-        indicator_name: indicator?.name || 'Indikator',
-        unit: indicator?.unit || '',
-        target: target?.target_value || 0,
-        actual: item.actual_value || 0,
-        achievement: Math.round(Number(achievement)),
-        status_color: statusColor,
-        is_large_deviation: Number(achievement) < 80,
-        evidence_file: item.evidence_url || 'bukti.pdf',
-        status: item.status,
-      };
-    });
-  } catch (err) {
-    console.error('Error getActualsForValidation:', err);
-    return [];
-  }
+// --------------------------------------------------------------------
+// Hasil KPI (view v_kpi_results — sudah difilter RLS sesuai role)
+// --------------------------------------------------------------------
+export const getKpiResults = async ({ periodId, periodIds, teamId, staffId } = {}) => {
+  let query = supabase.from('v_kpi_results').select('*');
+  if (periodId) query = query.eq('period_id', periodId);
+  if (periodIds?.length) query = query.in('period_id', periodIds);
+  if (teamId) query = query.eq('team_id', teamId);
+  if (staffId) query = query.eq('staff_id', staffId);
+  return unwrap(await query.order('indicator_code'));
 };
 
-export const updateActualValidation = async (actualId, status, validationNote, validatorId) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false };
+// --------------------------------------------------------------------
+// Realisasi (input staf & validasi supervisor)
+// --------------------------------------------------------------------
+export const saveActual = async ({ actualId, targetId, actualValue, notes, evidenceUrl, status }) => {
+  const payload = {
+    actual_value: actualValue,
+    notes: notes || null,
+    evidence_url: evidenceUrl || null,
+    status,
+  };
+  if (actualId) {
+    return unwrap(
+      await supabase.from('kpi_actuals').update(payload).eq('id', actualId).select().single()
+    );
   }
-  try {
-    const { data, error } = await supabase
+  return unwrap(
+    await supabase
       .from('kpi_actuals')
-      .update({
-        status,
-        validation_note: validationNote,
-        validated_by: validatorId || null,
-        validated_at: new Date().toISOString(),
-      })
+      .insert([{ ...payload, target_id: targetId }])
+      .select()
+      .single()
+  );
+};
+
+export const validateActual = async (actualId, status, validationNote) =>
+  unwrap(
+    await supabase
+      .from('kpi_actuals')
+      .update({ status, validation_note: validationNote || null })
       .eq('id', actualId)
-      .select();
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (err) {
-    console.error('Error updateActualValidation:', err);
-    return { success: false, error: err.message };
-  }
-};
-
-// 5. INPUT CAPAIAN STAF
-export const submitStaffActual = async ({ targetId, actualValue, notes, evidenceUrl }) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: 'Supabase belum dikonfigurasi' };
-  }
-  try {
-    const { data: actualData, error: actualErr } = await supabase
-      .from('kpi_actuals')
-      .insert([
-        {
-          target_id: targetId,
-          actual_value: actualValue,
-          notes,
-          evidence_url: evidenceUrl,
-          status: 'submitted',
-          submitted_at: new Date().toISOString(),
-        },
-      ])
       .select()
-      .single();
+      .single()
+  );
 
-    if (actualErr) throw actualErr;
-
-    const { data: targetDetail } = await supabase
-      .from('kpi_targets')
-      .select('target_value, kpi_indicators(direction, weight)')
-      .eq('id', targetId)
-      .single();
-
-    if (targetDetail) {
-      const dir = targetDetail.kpi_indicators?.direction || 'higher_better';
-      const weight = Number(targetDetail.kpi_indicators?.weight || 0);
-      const achievement = calculateAchievement(actualValue, targetDetail.target_value, dir);
-      const weightedScore = (achievement * weight) / 100;
-      const statusObj = getStatusByScore(achievement);
-
-      await supabase.from('kpi_scores').insert([
-        {
-          actual_id: actualData.id,
-          achievement_pct: achievement,
-          weighted_score: weightedScore,
-          status_color: statusObj.color,
-        },
-      ]);
-    }
-
-    return { success: true, data: actualData };
-  } catch (err) {
-    console.error('Error submitStaffActual:', err);
-    return { success: false, error: err.message };
-  }
+export const countPendingValidation = async (periodId) => {
+  let query = supabase
+    .from('v_kpi_results')
+    .select('target_id', { count: 'exact', head: true })
+    .eq('actual_status', 'submitted');
+  if (periodId) query = query.eq('period_id', periodId);
+  const { count, error } = await query;
+  if (error) throw new Error(error.message);
+  return count || 0;
 };
 
-// 6. ACTION PLANS (CAPA)
-export const getActionPlans = async () => {
-  if (!isSupabaseConfigured || !supabase) return [];
-  try {
-    const { data, error } = await supabase
-      .from('action_plans')
-      .select(`
-        id,
-        analysis,
-        action,
-        due_date,
-        status,
-        profiles:staff_id (id, full_name),
-        kpi_scores (
-          achievement_pct,
-          status_color,
-          kpi_actuals (
-            actual_value,
-            kpi_targets (
-              target_value,
-              kpi_indicators (name, unit)
-            )
-          )
-        )
-      `);
+// --------------------------------------------------------------------
+// Storage
+// --------------------------------------------------------------------
+const safeName = (name) => name.replace(/[^a-zA-Z0-9._-]+/g, '_');
 
-    if (error) {
-      console.error('Error getActionPlans:', error.message);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Error getActionPlans:', err);
-    return [];
-  }
+export const uploadEvidence = async (userId, file) => {
+  const path = `${userId}/${Date.now()}-${safeName(file.name)}`;
+  unwrap(await supabase.storage.from('evidence').upload(path, file, { upsert: false }));
+  return path;
 };
 
-export const createActionPlan = async (plan) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: 'Supabase belum dikonfigurasi' };
-  }
-  try {
-    const { data, error } = await supabase
-      .from('action_plans')
-      .insert([plan])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (err) {
-    console.error('Error createActionPlan:', err);
-    return { success: false, error: err.message };
-  }
+export const getSignedUrl = async (bucket, path, expiresIn = 300) => {
+  const data = unwrap(await supabase.storage.from(bucket).createSignedUrl(path, expiresIn));
+  return data.signedUrl;
 };
 
-// 7. LAPORAN & REVIEW MANAJEMEN
-export const getManagementReports = async () => {
-  if (!isSupabaseConfigured || !supabase) return [];
-  try {
-    const { data, error } = await supabase
+export const uploadReportFile = async (userId, reportId, blob) => {
+  const path = `${userId}/${reportId}.pdf`;
+  unwrap(
+    await supabase.storage
       .from('reports')
-      .select(`
-        id,
-        title,
-        summary,
-        file_url,
-        status,
-        submitted_at,
-        periods (name),
-        profiles (full_name),
-        report_reviews (*)
-      `)
-      .order('submitted_at', { ascending: false });
-
-    if (error) {
-      console.error('Error getManagementReports:', error.message);
-      return [];
-    }
-    return data || [];
-  } catch (err) {
-    console.error('Error getManagementReports:', err);
-    return [];
-  }
+      .upload(path, blob, { upsert: true, contentType: 'application/pdf' })
+  );
+  return path;
 };
 
-export const submitReportReview = async ({ reportId, decision, feedback, reviewerId }) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false };
+// --------------------------------------------------------------------
+// Action plan
+// --------------------------------------------------------------------
+const ACTION_PLAN_SELECT = `
+  id, score_id, staff_id, supervisor_id, pic_id, analysis, action, due_date, status, created_at, updated_at,
+  staff:staff_id (id, full_name),
+  pic:pic_id (id, full_name),
+  supervisor:supervisor_id (id, full_name),
+  kpi_scores:score_id (
+    achievement_pct, status_color,
+    kpi_actuals:actual_id (
+      actual_value,
+      kpi_targets:target_id (
+        target_value, period_id,
+        periods:period_id (name),
+        kpi_indicators:indicator_id (code, name, unit)
+      )
+    )
+  )
+`;
+
+/** Ratakan relasi bersarang agar mudah dipakai di UI. */
+const flattenPlan = (plan) => {
+  const score = plan.kpi_scores;
+  const actual = score?.kpi_actuals;
+  const target = actual?.kpi_targets;
+  return {
+    ...plan,
+    staff_name: plan.staff?.full_name || '-',
+    pic_name: plan.pic?.full_name || plan.supervisor?.full_name || '-',
+    achievement_pct: score?.achievement_pct ?? null,
+    status_color: score?.status_color ?? null,
+    actual_value: actual?.actual_value ?? null,
+    target_value: target?.target_value ?? null,
+    period_id: target?.period_id ?? null,
+    period_name: target?.periods?.name ?? '-',
+    indicator_name: target?.kpi_indicators?.name ?? '-',
+    indicator_code: target?.kpi_indicators?.code ?? '',
+    unit: target?.kpi_indicators?.unit ?? '',
+  };
+};
+
+export const getActionPlans = async ({ staffId } = {}) => {
+  let query = supabase
+    .from('action_plans')
+    .select(ACTION_PLAN_SELECT)
+    .order('due_date', { ascending: true });
+  if (staffId) query = query.or(`staff_id.eq.${staffId},pic_id.eq.${staffId}`);
+  return (unwrap(await query) || []).map(flattenPlan);
+};
+
+export const createActionPlan = async (plan) =>
+  flattenPlan(
+    unwrap(await supabase.from('action_plans').insert([plan]).select(ACTION_PLAN_SELECT).single())
+  );
+
+export const updateActionPlan = async (id, updates) =>
+  flattenPlan(
+    unwrap(
+      await supabase
+        .from('action_plans')
+        .update(updates)
+        .eq('id', id)
+        .select(ACTION_PLAN_SELECT)
+        .single()
+    )
+  );
+
+// --------------------------------------------------------------------
+// Laporan & review manajemen
+// --------------------------------------------------------------------
+const REPORT_SELECT = `
+  id, period_id, created_by, title, summary, content, file_url, status, submitted_at, created_at,
+  periods:period_id (id, name, start_date),
+  author:created_by (id, full_name, team_id, teams:team_id (name)),
+  report_reviews (id, decision, feedback, reviewed_at, reviewer:reviewer_id (full_name))
+`;
+
+const sortReviews = (report) =>
+  report
+    ? {
+        ...report,
+        report_reviews: [...(report.report_reviews || [])].sort(
+          (a, b) => new Date(b.reviewed_at) - new Date(a.reviewed_at)
+        ),
+      }
+    : report;
+
+export const getMyReport = async (periodId, userId) =>
+  sortReviews(
+    unwrap(
+      await supabase
+        .from('reports')
+        .select(REPORT_SELECT)
+        .eq('period_id', periodId)
+        .eq('created_by', userId)
+        .maybeSingle()
+    )
+  );
+
+export const getReportsForReview = async () =>
+  (
+    unwrap(
+      await supabase
+        .from('reports')
+        .select(REPORT_SELECT)
+        .neq('status', 'draft')
+        .order('submitted_at', { ascending: false })
+    ) || []
+  ).map(sortReviews);
+
+export const countReportsToReview = async () => {
+  const { count, error } = await supabase
+    .from('reports')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'submitted');
+  if (error) throw new Error(error.message);
+  return count || 0;
+};
+
+/** Buat atau perbarui laporan milik supervisor untuk satu periode. */
+export const saveReport = async ({ id, ...fields }) => {
+  if (id) {
+    return sortReviews(
+      unwrap(await supabase.from('reports').update(fields).eq('id', id).select(REPORT_SELECT).single())
+    );
   }
-  try {
-    const { data, error } = await supabase
+  return sortReviews(
+    unwrap(await supabase.from('reports').insert([fields]).select(REPORT_SELECT).single())
+  );
+};
+
+export const submitReportReview = async ({ reportId, decision, feedback, reviewerId }) =>
+  unwrap(
+    await supabase
       .from('report_reviews')
-      .insert([
-        {
-          report_id: reportId,
-          reviewer_id: reviewerId,
-          decision,
-          feedback,
-          reviewed_at: new Date().toISOString(),
-        },
-      ])
+      .insert([{ report_id: reportId, reviewer_id: reviewerId, decision, feedback }])
       .select()
-      .single();
-
-    if (error) throw error;
-
-    const newReportStatus = decision === 'approved' ? 'approved' : 'revision';
-    await supabase.from('reports').update({ status: newReportStatus }).eq('id', reportId);
-
-    return { success: true, data };
-  } catch (err) {
-    console.error('Error submitReportReview:', err);
-    return { success: false, error: err.message };
-  }
-};
+      .single()
+  );

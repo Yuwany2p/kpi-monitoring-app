@@ -1,288 +1,261 @@
-import React, { useState } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import { FileDown, Send, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { FileDown, Send, FileSpreadsheet, Loader2, MessageSquare } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useFilter } from '../context/FilterContext';
-import { initialStaffList } from '../lib/mockData';
+import { useAsyncData } from '../hooks/useAsyncData';
+import { getKpiResults, getActionPlans, getMyReport, saveReport, uploadReportFile } from '../services/supabaseService';
+import { buildReportContent, DEFAULT_SECTIONS } from '../lib/reportContent';
+import { exportReportPdf, exportReportExcel } from '../lib/reportExport';
+import { REPORT_STATUS, REVIEW_DECISIONS } from '../lib/constants';
+import { formatDateTime } from '../lib/formatters';
+import { Notice, LoadingBlock } from '../components/common/Notice';
+import { ReportPreview } from '../components/laporan/ReportPreview';
+
+const SECTION_LABELS = {
+  ringkasan: 'Ringkasan capaian',
+  tren: 'Grafik tren',
+  kpiWarna: 'Daftar KPI merah & kuning',
+  actionPlan: 'Action plan',
+};
+
+// Status yang masih boleh dikirim (ulang) oleh supervisor
+const SENDABLE = [undefined, null, 'draft', 'revision'];
 
 export const LaporanKpiPage = () => {
-  const { selectedPeriod, selectedTeam } = useFilter();
+  const { currentUser } = useAuth();
+  const { selectedPeriod, trendPeriods } = useFilter();
+  const periodIds = useMemo(() => trendPeriods.map((p) => p.id), [trendPeriods]);
 
-  const [sections, setSections] = useState({
-    ringkasan: true,
-    tren: true,
-    kpiWarna: true,
-    actionPlan: true,
-  });
+  const [sections, setSections] = useState(null);
+  const [notes, setNotes] = useState(null);
+  const [busy, setBusy] = useState(null); // 'pdf' | 'excel' | 'send'
+  const [message, setMessage] = useState(null);
 
-  const [notes, setNotes] = useState('Penurunan tiket dipengaruhi promo akhir bulan.');
-  const [sentSuccess, setSentSuccess] = useState(false);
+  const { data, setData, loading, error } = useAsyncData(
+    async () => {
+      const [rows, plans, report] = await Promise.all([
+        getKpiResults({ periodIds, teamId: currentUser.team_id }),
+        getActionPlans(),
+        getMyReport(selectedPeriod.id, currentUser.id),
+      ]);
+      return { rows, plans, report };
+    },
+    [periodIds.join(','), selectedPeriod?.id],
+    { enabled: Boolean(selectedPeriod) && periodIds.length > 0 }
+  );
 
-  const trendData = [
-    { bulan: 'Mei', skor: 80 },
-    { bulan: 'Jun', skor: 83 },
-    { bulan: 'Jul', skor: 86 },
-    { bulan: 'Agu', skor: 84 },
-    { bulan: 'Sep', skor: 87 },
-    { bulan: 'Okt', skor: 89 },
-  ];
+  // Reset form saat ganti periode
+  const [lastPeriodId, setLastPeriodId] = useState(selectedPeriod?.id);
+  if (selectedPeriod?.id !== lastPeriodId) {
+    setLastPeriodId(selectedPeriod?.id);
+    setSections(null);
+    setNotes(null);
+    setMessage(null);
+  }
 
-  const handleSendToManagement = () => {
-    setSentSuccess(true);
-    setTimeout(() => setSentSuccess(false), 4000);
+  const report = data?.report || null;
+  const currentSections = sections ?? report?.content?.sections ?? DEFAULT_SECTIONS;
+  const currentNotes = notes ?? report?.summary ?? '';
+  const canSend = SENDABLE.includes(report?.status);
+
+  const content = useMemo(() => {
+    if (!data || !selectedPeriod) return null;
+    return buildReportContent({
+      rows: data.rows,
+      trendPeriods,
+      period: selectedPeriod,
+      plans: data.plans,
+      teamName: currentUser.team_name,
+      authorName: currentUser.full_name,
+      notes: currentNotes,
+      sections: currentSections,
+    });
+  }, [data, selectedPeriod, trendPeriods, currentUser, currentNotes, currentSections]);
+
+  // Laporan yang sudah dikirim ditampilkan sesuai snapshot yang dikirim
+  const previewContent = !canSend && report?.content?.staff ? report.content : content;
+
+  const handleExport = async (type) => {
+    setBusy(type);
+    setMessage(null);
+    try {
+      if (type === 'pdf') await exportReportPdf(previewContent);
+      else await exportReportExcel(previewContent);
+    } catch (err) {
+      setMessage({ type: 'error', text: `Gagal mengekspor: ${err.message}` });
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const handleExportPdf = () => {
-    window.print();
+  const handleSend = async () => {
+    if (content.pending > 0 &&
+      !window.confirm(`Masih ada ${content.pending} data yang belum divalidasi. Tetap kirim laporan?`)) {
+      return;
+    }
+    setBusy('send');
+    setMessage(null);
+    try {
+      let saved = await saveReport({
+        id: report?.id,
+        period_id: selectedPeriod.id,
+        created_by: currentUser.id,
+        title: `Laporan KPI ${currentUser.team_name || ''} · ${selectedPeriod.name}`.trim(),
+        summary: currentNotes,
+        content,
+        status: 'submitted',
+        submitted_at: new Date().toISOString(),
+      });
+      let warning = null;
+      try {
+        const blob = await exportReportPdf(content, { download: false });
+        const path = await uploadReportFile(currentUser.id, saved.id, blob);
+        saved = await saveReport({ id: saved.id, file_url: path });
+      } catch (err) {
+        warning = `Laporan terkirim, tetapi file PDF gagal diunggah (${err.message}).`;
+      }
+      setData((prev) => ({ ...prev, report: saved }));
+      setSections(null);
+      setNotes(null);
+      setMessage(
+        warning
+          ? { type: 'warning', text: warning }
+          : { type: 'success', text: 'Laporan berhasil dikirim ke Manajemen untuk direview.' }
+      );
+    } catch (err) {
+      setMessage({ type: 'error', text: `Gagal mengirim laporan: ${err.message}` });
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const handleExportExcel = () => {
-    alert('Mengunduh laporan dalam format file spreadsheet Excel (.xlsx)...');
-  };
+  if (error) return <Notice type="error">{error}</Notice>;
+  if (loading || !data || !content) return <LoadingBlock text="Menyusun laporan..." />;
+
+  const statusCfg = report ? REPORT_STATUS[report.status] : null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Left Column (approx 40%): Pengaturan Laporan */}
-      <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5 no-print">
-        <h2 className="text-base font-bold text-slate-900">Pengaturan Laporan</h2>
+      <div className="lg:col-span-5 space-y-6 no-print">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
+          <h2 className="text-base font-bold text-slate-900">Pengaturan Laporan</h2>
 
-        {sentSuccess && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            Laporan berhasil dikirim ke Manajemen untuk direview!
+          {message && <Notice type={message.type}>{message.text}</Notice>}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Periode</label>
+              <div className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 bg-slate-50">
+                {selectedPeriod.name}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tim</label>
+              <div className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 bg-slate-50 truncate">
+                {currentUser.team_name || '-'}
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Periode */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Periode</label>
-          <div className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 bg-slate-50">
-            {selectedPeriod}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-2">Isi laporan</label>
+            <div className="space-y-2 text-xs">
+              {Object.entries(SECTION_LABELS).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2.5 cursor-pointer text-slate-700">
+                  <input
+                    type="checkbox"
+                    disabled={!canSend}
+                    checked={currentSections[key] !== false}
+                    onChange={(e) => setSections({ ...currentSections, [key]: e.target.checked })}
+                    className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-600 cursor-pointer"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Tim */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tim</label>
-          <div className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 bg-slate-50">
-            {selectedTeam}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Catatan supervisor</label>
+            <textarea
+              rows={3}
+              disabled={!canSend}
+              value={currentNotes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ringkasan kondisi tim, kendala, dan rencana periode depan."
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-astra-600 focus:outline-none disabled:bg-slate-50"
+            />
           </div>
-        </div>
 
-        {/* Isi Laporan Checkboxes */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-2">Isi laporan</label>
-          <div className="space-y-2 text-xs">
-            <label className="flex items-center gap-2.5 cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={sections.ringkasan}
-                onChange={(e) => setSections({ ...sections, ringkasan: e.target.checked })}
-                className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-600 cursor-pointer"
-              />
-              <span>Ringkasan capaian</span>
-            </label>
-
-            <label className="flex items-center gap-2.5 cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={sections.tren}
-                onChange={(e) => setSections({ ...sections, tren: e.target.checked })}
-                className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-600 cursor-pointer"
-              />
-              <span>Grafik tren</span>
-            </label>
-
-            <label className="flex items-center gap-2.5 cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={sections.kpiWarna}
-                onChange={(e) => setSections({ ...sections, kpiWarna: e.target.checked })}
-                className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-600 cursor-pointer"
-              />
-              <span>Daftar KPI merah & kuning</span>
-            </label>
-
-            <label className="flex items-center gap-2.5 cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={sections.actionPlan}
-                onChange={(e) => setSections({ ...sections, actionPlan: e.target.checked })}
-                className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-600 cursor-pointer"
-              />
-              <span>Action plan</span>
-            </label>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => handleExport('pdf')}
+              disabled={Boolean(busy)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              {busy === 'pdf' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5 text-slate-500" />}
+              Ekspor PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('excel')}
+              disabled={Boolean(busy)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+            >
+              {busy === 'excel' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />}
+              Ekspor Excel
+            </button>
           </div>
+
+          {canSend ? (
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={Boolean(busy)}
+              className="w-full py-3 px-4 bg-astra-800 hover:bg-astra-900 disabled:opacity-60 active:scale-[0.99] text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              {busy === 'send' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {report?.status === 'revision' ? 'Kirim Revisi ke Manajemen' : 'Kirim ke Manajemen'}
+            </button>
+          ) : (
+            <Notice type="info">
+              Laporan periode ini sudah dikirim ({formatDateTime(report.submitted_at)}) dan berstatus{' '}
+              <strong>{statusCfg?.label}</strong>.
+            </Notice>
+          )}
         </div>
 
-        {/* Catatan Supervisor */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-            Catatan supervisor
-          </label>
-          <textarea
-            rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-astra-600 focus:outline-none"
-          />
+        {/* Feedback manajemen */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
+          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-astra-700" /> Feedback Manajemen
+          </h3>
+          {!report?.report_reviews?.length ? (
+            <p className="text-xs text-slate-400">Belum ada feedback untuk laporan periode ini.</p>
+          ) : (
+            report.report_reviews.map((rv) => (
+              <div key={rv.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-800">{REVIEW_DECISIONS[rv.decision]}</span>
+                  <span className="text-[11px] text-slate-400">{formatDateTime(rv.reviewed_at)}</span>
+                </div>
+                <p className="text-slate-600">{rv.feedback}</p>
+                <p className="text-[11px] text-slate-400">— {rv.reviewer?.full_name}</p>
+              </div>
+            ))
+          )}
         </div>
-
-        {/* Export Buttons */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-          >
-            <FileDown className="w-3.5 h-3.5 text-slate-500" /> Ekspor PDF
-          </button>
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" /> Ekspor Excel
-          </button>
-        </div>
-
-        {/* Kirim ke Manajemen Button */}
-        <button
-          type="button"
-          onClick={handleSendToManagement}
-          className="w-full py-3 px-4 bg-astra-800 hover:bg-astra-900 active:scale-[0.99] text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
-        >
-          <Send className="w-4 h-4" /> Kirim ke Manajemen
-        </button>
       </div>
 
-      {/* Right Column (approx 60%): Pratinjau Laporan */}
-      <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-8 shadow-xs flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-            <h3 className="font-bold text-slate-900 text-sm">Pratinjau Laporan</h3>
-            <span className="px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
-              Draft
-            </span>
-          </div>
-
-          {/* Document Sheet Preview */}
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-900">
-                Laporan KPI {selectedTeam}
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Periode {selectedPeriod} · Disusun oleh Hendra Wijaya
-              </p>
-            </div>
-
-            {/* 3 Metrics */}
-            <div className="flex items-center gap-8">
-              <div>
-                <p className="text-xs text-slate-400 font-medium">Skor tim</p>
-                <p className="text-3xl font-extrabold text-slate-900 mt-0.5">89%</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 font-medium">Merah</p>
-                <p className="text-3xl font-extrabold text-rose-600 mt-0.5">4</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 font-medium">Kuning</p>
-                <p className="text-3xl font-extrabold text-amber-600 mt-0.5">8</p>
-              </div>
-            </div>
-
-            {/* Split Grid: Staf Table on Left, Line Chart on Right */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              {/* Staf Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                      <th className="pb-2.5 font-medium">Staf</th>
-                      <th className="pb-2.5 text-center font-medium">Skor</th>
-                      <th className="pb-2.5 text-center font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {initialStaffList.map((staf) => (
-                      <tr key={staf.id}>
-                        <td className="py-2.5 font-semibold text-slate-800">{staf.name}</td>
-                        <td className="py-2.5 text-center font-bold text-slate-900">
-                          {staf.scores.overall}%
-                        </td>
-                        <td className="py-2.5 text-center">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              staf.scores.status === 'Hijau'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : staf.scores.status === 'Kuning'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {staf.scores.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Line Chart */}
-              <div className="w-full h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
-                    <XAxis dataKey="bulan" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                    <YAxis domain={[70, 100]} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                    <Tooltip
-                      formatter={(val) => [`${val}%`, 'Skor']}
-                      contentStyle={{
-                        backgroundColor: '#0f1e36',
-                        borderRadius: '0.5rem',
-                        color: '#fff',
-                        fontSize: '11px',
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="skor"
-                      stroke="#1d4ed8"
-                      strokeWidth={2}
-                      dot={{ fill: '#ffffff', stroke: '#1d4ed8', strokeWidth: 2, r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Masalah utama & Tindak lanjut notes */}
-            <div className="pt-4 border-t border-slate-100 space-y-1.5 text-xs">
-              <p className="text-slate-800">
-                <strong className="font-bold">Masalah utama:</strong> tiket terselesaikan 84% dari
-                target.
-              </p>
-              <p className="text-slate-800">
-                <strong className="font-bold">Tindak lanjut:</strong> 2 action plan berjalan.
-              </p>
-              {notes && (
-                <p className="text-slate-600 italic pt-1">
-                  Catatan supervisor: "{notes}"
-                </p>
-              )}
-            </div>
-          </div>
+      <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-8 shadow-xs">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <h3 className="font-bold text-slate-900 text-sm">Pratinjau Laporan</h3>
+          <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${statusCfg?.badge || 'bg-slate-100 text-slate-600'}`}>
+            {statusCfg?.label || 'Draft'}
+          </span>
         </div>
+        <ReportPreview content={previewContent} />
       </div>
     </div>
   );
