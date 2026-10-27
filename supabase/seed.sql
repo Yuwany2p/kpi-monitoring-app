@@ -174,7 +174,7 @@ WHERE v.staff_name = 'Rina Marlina'
 -- --------------------------------------------------------------------
 INSERT INTO public.reports (id, period_id, created_by, title, summary, status, submitted_at) VALUES
   ('f0000000-0000-0000-0000-000000000009', 'e0000000-0000-0000-0000-000000000009',
-   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Laporan KPI Tim Customer Service · September 2026',
+   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Laporan KPI Tim Customer Service, September 2026',
    'Capaian tim stabil. Tiket terselesaikan Rina terus menurun, coaching dijadwalkan bulan depan.',
    'submitted', '2026-10-03 09:00+07');
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FileDown, Send, FileSpreadsheet, Loader2, MessageSquare } from 'lucide-react';
+import { FileDown, Send, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFilter } from '../context/FilterContext';
 import { useAsyncData } from '../hooks/useAsyncData';
@@ -8,7 +8,7 @@ import { buildReportContent, DEFAULT_SECTIONS } from '../lib/reportContent';
 import { exportReportPdf, exportReportExcel } from '../lib/reportExport';
 import { REPORT_STATUS, REVIEW_DECISIONS } from '../lib/constants';
 import { formatDateTime } from '../lib/formatters';
-import { Notice, LoadingBlock } from '../components/common/Notice';
+import { Notice, LoadingBlock, StatusPill } from '../components/common/Notice';
 import { ReportPreview } from '../components/laporan/ReportPreview';
 
 const SECTION_LABELS = {
@@ -29,6 +29,7 @@ export const LaporanKpiPage = () => {
   const [sections, setSections] = useState(null);
   const [notes, setNotes] = useState(null);
   const [busy, setBusy] = useState(null); // 'pdf' | 'excel' | 'send'
+  const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState(null);
 
   const { data, setData, loading, error } = useAsyncData(
@@ -44,13 +45,13 @@ export const LaporanKpiPage = () => {
     { enabled: Boolean(selectedPeriod) && periodIds.length > 0 }
   );
 
-  // Reset form saat ganti periode
   const [lastPeriodId, setLastPeriodId] = useState(selectedPeriod?.id);
   if (selectedPeriod?.id !== lastPeriodId) {
     setLastPeriodId(selectedPeriod?.id);
     setSections(null);
     setNotes(null);
     setMessage(null);
+    setConfirming(false);
   }
 
   const report = data?.report || null;
@@ -72,7 +73,7 @@ export const LaporanKpiPage = () => {
     });
   }, [data, selectedPeriod, trendPeriods, currentUser, currentNotes, currentSections]);
 
-  // Laporan yang sudah dikirim ditampilkan sesuai snapshot yang dikirim
+  // Laporan yang sudah dikirim ditampilkan sesuai isi saat dikirim
   const previewContent = !canSend && report?.content?.staff ? report.content : content;
 
   const handleExport = async (type) => {
@@ -82,17 +83,14 @@ export const LaporanKpiPage = () => {
       if (type === 'pdf') await exportReportPdf(previewContent);
       else await exportReportExcel(previewContent);
     } catch (err) {
-      setMessage({ type: 'error', text: `Gagal mengekspor: ${err.message}` });
+      setMessage({ type: 'error', text: `File belum bisa dibuat: ${err.message}` });
     } finally {
       setBusy(null);
     }
   };
 
-  const handleSend = async () => {
-    if (content.pending > 0 &&
-      !window.confirm(`Masih ada ${content.pending} data yang belum divalidasi. Tetap kirim laporan?`)) {
-      return;
-    }
+  const send = async () => {
+    setConfirming(false);
     setBusy('send');
     setMessage(null);
     try {
@@ -100,7 +98,7 @@ export const LaporanKpiPage = () => {
         id: report?.id,
         period_id: selectedPeriod.id,
         created_by: currentUser.id,
-        title: `Laporan KPI ${currentUser.team_name || ''} · ${selectedPeriod.name}`.trim(),
+        title: `Laporan KPI ${currentUser.team_name || ''}, ${selectedPeriod.name}`.trim(),
         summary: currentNotes,
         content,
         status: 'submitted',
@@ -112,151 +110,138 @@ export const LaporanKpiPage = () => {
         const path = await uploadReportFile(currentUser.id, saved.id, blob);
         saved = await saveReport({ id: saved.id, file_url: path });
       } catch (err) {
-        warning = `Laporan terkirim, tetapi file PDF gagal diunggah (${err.message}).`;
+        warning = `Laporan terkirim, tapi file PDF-nya gagal diunggah (${err.message}). Manajemen tetap bisa membaca laporan di aplikasi.`;
       }
       setData((prev) => ({ ...prev, report: saved }));
       setSections(null);
       setNotes(null);
-      setMessage(
-        warning
-          ? { type: 'warning', text: warning }
-          : { type: 'success', text: 'Laporan berhasil dikirim ke Manajemen untuk direview.' }
-      );
+      setMessage(warning ? { type: 'warning', text: warning } : { type: 'success', text: 'Laporan terkirim ke manajemen.' });
     } catch (err) {
-      setMessage({ type: 'error', text: `Gagal mengirim laporan: ${err.message}` });
+      setMessage({ type: 'error', text: `Laporan belum terkirim: ${err.message}` });
     } finally {
       setBusy(null);
     }
   };
 
+  const handleSendClick = () => (content.pending > 0 ? setConfirming(true) : send());
+
   if (error) return <Notice type="error">{error}</Notice>;
-  if (loading || !data || !content) return <LoadingBlock text="Menyusun laporan..." />;
+  if (loading || !data || !content) return <LoadingBlock text="Menyusun laporan…" />;
 
   const statusCfg = report ? REPORT_STATUS[report.status] : null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div className="lg:col-span-5 space-y-6 no-print">
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-          <h2 className="text-base font-bold text-slate-900">Pengaturan Laporan</h2>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <div className="no-print space-y-6 lg:col-span-5">
+        <section className="card space-y-5 p-6">
+          <h2 className="card-title">Pengaturan laporan</h2>
 
           {message && <Notice type={message.type}>{message.text}</Notice>}
 
-          <div className="grid grid-cols-2 gap-3">
+          <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Periode</label>
-              <div className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 bg-slate-50">
-                {selectedPeriod.name}
-              </div>
+              <dt className="text-slate-500">Periode</dt>
+              <dd className="mt-0.5 font-medium text-slate-900">{selectedPeriod.name}</dd>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tim</label>
-              <div className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 bg-slate-50 truncate">
-                {currentUser.team_name || '-'}
-              </div>
+              <dt className="text-slate-500">Tim</dt>
+              <dd className="mt-0.5 font-medium text-slate-900">{currentUser.team_name || '–'}</dd>
             </div>
-          </div>
+          </dl>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-2">Isi laporan</label>
-            <div className="space-y-2 text-xs">
+          <fieldset disabled={!canSend}>
+            <legend className="label">Isi laporan</legend>
+            <div className="space-y-2">
               {Object.entries(SECTION_LABELS).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2.5 cursor-pointer text-slate-700">
+                <label key={key} className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    disabled={!canSend}
                     checked={currentSections[key] !== false}
                     onChange={(e) => setSections({ ...currentSections, [key]: e.target.checked })}
-                    className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-600 cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-astra-600"
                   />
-                  <span>{label}</span>
+                  {label}
                 </label>
               ))}
             </div>
-          </div>
+          </fieldset>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Catatan supervisor</label>
+            <label htmlFor="report-notes" className="label">Catatan supervisor</label>
             <textarea
-              rows={3}
+              id="report-notes"
+              rows={4}
               disabled={!canSend}
               value={currentNotes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ringkasan kondisi tim, kendala, dan rencana periode depan."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-astra-600 focus:outline-none disabled:bg-slate-50"
+              placeholder="Kondisi tim, kendala utama, dan rencana bulan depan"
+              className="field"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => handleExport('pdf')}
-              disabled={Boolean(busy)}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              {busy === 'pdf' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5 text-slate-500" />}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => handleExport('pdf')} disabled={Boolean(busy)} className="btn-secondary">
+              {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
               Ekspor PDF
             </button>
-            <button
-              type="button"
-              onClick={() => handleExport('excel')}
-              disabled={Boolean(busy)}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
-            >
-              {busy === 'excel' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />}
+            <button type="button" onClick={() => handleExport('excel')} disabled={Boolean(busy)} className="btn-secondary">
+              {busy === 'excel' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
               Ekspor Excel
             </button>
           </div>
 
           {canSend ? (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={Boolean(busy)}
-              className="w-full py-3 px-4 bg-astra-800 hover:bg-astra-900 disabled:opacity-60 active:scale-[0.99] text-white font-semibold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              {busy === 'send' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {report?.status === 'revision' ? 'Kirim Revisi ke Manajemen' : 'Kirim ke Manajemen'}
-            </button>
-          ) : (
-            <Notice type="info">
-              Laporan periode ini sudah dikirim ({formatDateTime(report.submitted_at)}) dan berstatus{' '}
-              <strong>{statusCfg?.label}</strong>.
-            </Notice>
-          )}
-        </div>
-
-        {/* Feedback manajemen */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-3">
-          <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-astra-700" /> Feedback Manajemen
-          </h3>
-          {!report?.report_reviews?.length ? (
-            <p className="text-xs text-slate-400">Belum ada feedback untuk laporan periode ini.</p>
-          ) : (
-            report.report_reviews.map((rv) => (
-              <div key={rv.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-slate-800">{REVIEW_DECISIONS[rv.decision]}</span>
-                  <span className="text-[11px] text-slate-400">{formatDateTime(rv.reviewed_at)}</span>
+            confirming ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p>
+                  {content.pending} data masih menunggu validasi dan belum masuk perhitungan. Kirim laporan sekarang
+                  atau validasi dulu?
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={send} className="btn-primary btn-sm">Tetap kirim</button>
+                  <button onClick={() => setConfirming(false)} className="btn-secondary btn-sm">Batal</button>
                 </div>
-                <p className="text-slate-600">{rv.feedback}</p>
-                <p className="text-[11px] text-slate-400">— {rv.reviewer?.full_name}</p>
               </div>
-            ))
+            ) : (
+              <button type="button" onClick={handleSendClick} disabled={Boolean(busy)} className="btn-primary w-full py-2.5">
+                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {report?.status === 'revision' ? 'Kirim revisi ke manajemen' : 'Kirim ke manajemen'}
+              </button>
+            )
+          ) : (
+            <p className="text-sm text-slate-600">
+              Dikirim {formatDateTime(report.submitted_at)}. Status: <strong>{statusCfg?.label}</strong>.
+            </p>
           )}
-        </div>
+        </section>
+
+        <section className="card p-6">
+          <h2 className="card-title">Feedback manajemen</h2>
+          {!report?.report_reviews?.length ? (
+            <p className="mt-2 text-sm text-slate-500">Belum ada feedback untuk laporan periode ini.</p>
+          ) : (
+            <ul className="mt-4 space-y-4">
+              {report.report_reviews.map((rv) => (
+                <li key={rv.id} className="border-l-2 border-astra-200 pl-4">
+                  <p className="text-sm font-semibold text-slate-900">{REVIEW_DECISIONS[rv.decision]}</p>
+                  <p className="mt-1 text-sm text-slate-700">{rv.feedback}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {rv.reviewer?.full_name}, {formatDateTime(rv.reviewed_at)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
-      <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-8 shadow-xs">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-          <h3 className="font-bold text-slate-900 text-sm">Pratinjau Laporan</h3>
-          <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${statusCfg?.badge || 'bg-slate-100 text-slate-600'}`}>
-            {statusCfg?.label || 'Draft'}
-          </span>
+      <section className="card p-6 sm:p-8 lg:col-span-7">
+        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
+          <h2 className="card-title">Pratinjau laporan</h2>
+          <StatusPill className={statusCfg?.badge || 'bg-slate-100 text-slate-600'}>{statusCfg?.label || 'Draft'}</StatusPill>
         </div>
         <ReportPreview content={previewContent} />
-      </div>
+      </section>
     </div>
   );
 };

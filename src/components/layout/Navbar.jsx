@@ -1,106 +1,93 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Menu } from 'lucide-react';
 import { useFilter } from '../../context/FilterContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../lib/constants';
 
-const PAGE_INFO = {
-  '/kelola-kpi': { breadcrumb: 'Beranda / Kelola KPI & Target', title: 'Kelola KPI & Target' },
-  '/validasi': { breadcrumb: 'Beranda / Validasi Data', title: 'Validasi Data Capaian' },
-  '/analisis-tindak-lanjut': { breadcrumb: 'Beranda / Analisis & Tindak Lanjut', title: 'Analisis & Tindak Lanjut' },
-  '/laporan-kpi': { breadcrumb: 'Beranda / Laporan KPI', title: 'Laporan KPI ke Manajemen' },
-  '/review-laporan': { breadcrumb: 'Beranda / Review Laporan', title: 'Review Laporan KPI' },
-  '/input-capaian': { breadcrumb: 'Beranda / Input Capaian', title: 'Input Capaian KPI' },
-  '/riwayat-pengajuan': { breadcrumb: 'Beranda / Riwayat Pengajuan', title: 'Riwayat Pengajuan Capaian' },
-  '/tindak-lanjut-staf': { breadcrumb: 'Beranda / Tindak Lanjut', title: 'Tindak Lanjut & Action Plan' },
+const PAGE_TITLES = {
+  '/kelola-kpi': 'Kelola KPI & Target',
+  '/validasi': 'Validasi Data Capaian',
+  '/analisis-tindak-lanjut': 'Analisis & Tindak Lanjut',
+  '/laporan-kpi': 'Laporan KPI ke Manajemen',
+  '/review-laporan': 'Review Laporan KPI',
+  '/input-capaian': 'Input Capaian KPI',
+  '/riwayat-pengajuan': 'Riwayat Pengajuan',
+  '/tindak-lanjut-staf': 'Tindak Lanjut',
 };
 
-// Halaman yang tidak bergantung pada filter periode
+// Halaman yang isinya tidak bergantung pada pilihan periode
 const NO_PERIOD_FILTER = ['/riwayat-pengajuan', '/tindak-lanjut-staf', '/review-laporan'];
 
-const selectClass =
-  'appearance-none bg-white border border-slate-300 hover:border-slate-400 rounded-xl px-4 py-2 pr-9 text-xs font-semibold text-slate-700 shadow-xs focus:outline-none focus:ring-2 focus:ring-astra-600 cursor-pointer';
+const Select = ({ label, value, onChange, children }) => (
+  <label className="relative block">
+    <span className="sr-only">{label}</span>
+    <select
+      value={value}
+      onChange={onChange}
+      className="appearance-none rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-9 text-sm font-medium text-slate-700 hover:border-slate-400 focus:border-astra-600 focus:outline-none focus:ring-2 focus:ring-astra-600/20 cursor-pointer"
+    >
+      {children}
+    </select>
+    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+  </label>
+);
 
-export const Navbar = () => {
+export const Navbar = ({ onOpenMenu }) => {
   const location = useLocation();
-  const { periods, selectedPeriodId, setSelectedPeriodId, selectedPeriod, teams, selectedTeamId, setSelectedTeamId } =
-    useFilter();
+  const { periods, selectedPeriodId, setSelectedPeriodId, teams, selectedTeamId, setSelectedTeamId } = useFilter();
   const { role, currentUser } = useAuth();
 
-  const { breadcrumb, title } = PAGE_INFO[location.pathname] || {
-    breadcrumb: 'Beranda / Dashboard',
-    title: role === ROLES.STAF ? 'Dashboard Capaian Saya' : 'Dashboard KPI Tim',
-  };
+  const title =
+    PAGE_TITLES[location.pathname] || (role === ROLES.STAF ? 'Dashboard Capaian Saya' : 'Dashboard KPI Tim');
+  const crumb = location.pathname === '/' ? 'Dashboard' : title;
   const showPeriod = !NO_PERIOD_FILTER.includes(location.pathname);
 
   return (
-    <header className="bg-white border-b border-slate-200/80 px-8 py-5 no-print">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-medium text-slate-400">{breadcrumb}</p>
-          <h1 className="text-xl font-bold text-slate-900 mt-0.5 tracking-tight">{title}</h1>
+    <header className="no-print border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onOpenMenu}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+            aria-label="Buka menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div>
+            <p className="text-sm text-slate-500">Beranda / {crumb}</p>
+            <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {showPeriod && selectedPeriod && (
-            <span
-              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold border ${
-                selectedPeriod.status === 'open'
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  : 'bg-slate-50 text-slate-600 border-slate-200'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  selectedPeriod.status === 'open' ? 'bg-emerald-500' : 'bg-slate-400'
-                }`}
-              />
-              {selectedPeriod.status === 'open' ? 'Periode berjalan' : 'Periode ditutup'}
-            </span>
-          )}
-
+        <div className="flex flex-wrap items-center gap-3">
           {showPeriod && (
-            <div className="relative">
-              <select
-                value={selectedPeriodId || ''}
-                onChange={(e) => setSelectedPeriodId(e.target.value)}
-                className={selectClass}
-              >
-                {periods.length === 0 && <option value="">Belum ada periode</option>}
-                {[...periods].reverse().map((p) => (
-                  <option key={p.id} value={p.id}>
-                    Periode: {p.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            <Select label="Periode" value={selectedPeriodId || ''} onChange={(e) => setSelectedPeriodId(e.target.value)}>
+              {periods.length === 0 && <option value="">Belum ada periode</option>}
+              {[...periods].reverse().map((p) => (
+                <option key={p.id} value={p.id}>
+                  Periode: {p.name}
+                  {p.status === 'closed' ? ' (ditutup)' : ''}
+                </option>
+              ))}
+            </Select>
           )}
 
-          {role === ROLES.MANAJEMEN && showPeriod ? (
-            <div className="relative">
-              <select
-                value={selectedTeamId || ''}
-                onChange={(e) => setSelectedTeamId(e.target.value || null)}
-                className={selectClass}
-              >
-                <option value="">Semua tim</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          ) : (
-            role === ROLES.SUPERVISOR &&
-            currentUser?.team_name && (
-              <span className="px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700">
-                {currentUser.team_name}
-              </span>
-            )
+          {role === ROLES.MANAJEMEN && showPeriod && (
+            <Select label="Tim" value={selectedTeamId || ''} onChange={(e) => setSelectedTeamId(e.target.value || null)}>
+              <option value="">Semua tim</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          )}
+
+          {role === ROLES.SUPERVISOR && currentUser?.team_name && (
+            <span className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+              {currentUser.team_name}
+            </span>
           )}
         </div>
       </div>

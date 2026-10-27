@@ -3,18 +3,17 @@ import { Paperclip, Loader2 } from 'lucide-react';
 import { getSignedUrl } from '../../services/supabaseService';
 import { fileNameFromPath } from '../../lib/formatters';
 
-/** Buka file bukti dari bucket privat lewat signed URL (berlaku 5 menit). */
-export const EvidenceLink = ({ path, bucket = 'evidence', label }) => {
+/** Membuka file bukti dari bucket privat lewat signed URL (berlaku 5 menit). */
+export const EvidenceLink = ({ path, bucket = 'evidence' }) => {
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState(null);
 
-  if (!path) return <span className="text-slate-300 text-[11px]">Tidak ada</span>;
+  if (!path) return <span className="text-sm text-slate-400">–</span>;
 
-  const handleOpen = async (e) => {
-    e.preventDefault();
+  const handleOpen = async () => {
     setOpening(true);
     setError(null);
-    // buka tab dulu agar tidak diblokir popup blocker
+    // tab dibuka lebih dulu supaya tidak diblokir popup blocker
     const win = window.open('', '_blank');
     try {
       const url = await getSignedUrl(bucket, path);
@@ -28,18 +27,19 @@ export const EvidenceLink = ({ path, bucket = 'evidence', label }) => {
     }
   };
 
+  const name = fileNameFromPath(path);
   return (
-    <span className="inline-flex flex-col">
-      <a
-        href="#bukti"
+    <span className="inline-flex flex-col items-start">
+      <button
+        type="button"
         onClick={handleOpen}
-        className="text-astra-800 hover:text-astra-900 font-semibold underline inline-flex items-center gap-1 max-w-[180px]"
-        title={fileNameFromPath(path)}
+        title={name}
+        className="inline-flex max-w-[180px] items-center gap-1 text-sm font-medium text-astra-600 hover:text-astra-800 hover:underline cursor-pointer"
       >
-        {opening ? <Loader2 className="w-3 h-3 animate-spin" /> : <Paperclip className="w-3 h-3 shrink-0" />}
-        <span className="truncate">{label || fileNameFromPath(path)}</span>
-      </a>
-      {error && <span className="text-[10px] text-rose-600">{error}</span>}
+        {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5 shrink-0" />}
+        <span className="truncate">{name}</span>
+      </button>
+      {error && <span className="text-xs text-rose-700">File tidak bisa dibuka: {error}</span>}
     </span>
   );
 };

@@ -22,8 +22,8 @@ import { ROLES } from '../lib/constants';
 const { SUPERVISOR, STAF, MANAJEMEN } = ROLES;
 
 const FullScreenLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 text-sm gap-2">
-    <Loader2 className="w-5 h-5 animate-spin text-astra-700" /> Memuat sesi...
+  <div className="flex min-h-screen items-center justify-center gap-2 bg-canvas text-sm text-slate-500">
+    <Loader2 className="h-5 w-5 animate-spin text-astra-600" aria-hidden="true" /> Memuat…
   </div>
 );
 
@@ -36,14 +36,12 @@ const RequireAuth = ({ children }) => {
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />;
   if (profileError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md bg-white border border-slate-200 rounded-2xl p-6 text-sm space-y-4">
-          <p className="font-bold text-slate-900">Profil pengguna tidak dapat dimuat</p>
+      <div className="flex min-h-screen items-center justify-center bg-canvas p-6">
+        <div className="card max-w-md space-y-3 p-6">
+          <h1 className="text-lg font-semibold text-slate-900">Profil Anda tidak bisa dimuat</h1>
           <p className="text-slate-600">{profileError}</p>
-          <button
-            onClick={logout}
-            className="px-4 py-2 bg-astra-800 hover:bg-astra-900 text-white rounded-xl text-xs font-semibold"
-          >
+          <p className="text-slate-600">Pastikan akun Anda punya baris di tabel profiles, lalu masuk lagi.</p>
+          <button onClick={logout} className="btn-primary">
             Keluar
           </button>
         </div>

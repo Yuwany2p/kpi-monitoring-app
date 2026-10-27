@@ -69,7 +69,7 @@ export const exportReportPdf = async (content, { download = true } = {}) => {
   doc.text(`Laporan KPI ${content.team_name || ''}`, margin, y);
   y += 6;
   doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100, 116, 139);
-  doc.text(`Periode ${content.period_name} · Disusun oleh ${content.author_name} · ${formatDate(content.generated_at)}`, margin, y);
+  doc.text(`Periode ${content.period_name}, disusun oleh ${content.author_name} pada ${formatDate(content.generated_at)}`, margin, y);
   y += 10;
 
   if (sections.ringkasan !== false) {

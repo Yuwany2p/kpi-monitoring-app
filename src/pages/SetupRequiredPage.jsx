@@ -1,32 +1,26 @@
 import React from 'react';
-import { Database } from 'lucide-react';
 
-/** Ditampilkan jika .env belum berisi kredensial Supabase. */
+const Code = ({ children }) => <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[13px]">{children}</code>;
+
+/** Muncul jika .env belum berisi kredensial Supabase. */
 export const SetupRequiredPage = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-    <div className="max-w-lg w-full bg-white border border-slate-200 rounded-2xl p-8 shadow-xs space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-astra-800 text-white flex items-center justify-center">
-          <Database className="w-5 h-5" />
-        </div>
-        <h1 className="text-lg font-bold text-slate-900">Supabase belum dikonfigurasi</h1>
-      </div>
-      <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600">
+  <div className="flex min-h-screen items-center justify-center bg-canvas p-6">
+    <div className="card w-full max-w-lg p-8">
+      <h1 className="text-xl font-bold text-slate-900">Supabase belum dikonfigurasi</h1>
+      <p className="mt-2 text-slate-600">Aplikasi butuh koneksi ke database Supabase sebelum bisa dipakai.</p>
+      <ol className="mt-5 list-decimal space-y-2.5 pl-5 text-slate-700">
         <li>
-          Salin <code className="px-1 bg-slate-100 rounded">.env.example</code> menjadi{' '}
-          <code className="px-1 bg-slate-100 rounded">.env</code>.
+          Salin <Code>.env.example</Code> menjadi <Code>.env</Code>.
         </li>
         <li>
-          Isi <code className="px-1 bg-slate-100 rounded">VITE_SUPABASE_URL</code> dan{' '}
-          <code className="px-1 bg-slate-100 rounded">VITE_SUPABASE_ANON_KEY</code> dari Supabase
-          Dashboard → Project Settings → API.
+          Isi <Code>VITE_SUPABASE_URL</Code> dan <Code>VITE_SUPABASE_ANON_KEY</Code> dari Supabase Dashboard, menu
+          Project Settings, API.
         </li>
         <li>
-          Jalankan <code className="px-1 bg-slate-100 rounded">supabase/schema.sql</code> lalu{' '}
-          <code className="px-1 bg-slate-100 rounded">supabase/seed.sql</code> di SQL Editor.
+          Jalankan <Code>supabase/schema.sql</Code> lalu <Code>supabase/seed.sql</Code> di SQL Editor.
         </li>
         <li>
-          Restart <code className="px-1 bg-slate-100 rounded">npm run dev</code>.
+          Hentikan lalu jalankan ulang <Code>npm run dev</Code>.
         </li>
       </ol>
     </div>

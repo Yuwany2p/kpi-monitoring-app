@@ -29,9 +29,9 @@ export const STATUS_COLORS = {
     key: 'green',
     label: 'Hijau',
     description: '≥ 100%',
-    badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    badge: 'bg-emerald-50 text-emerald-700',
     soft: 'bg-emerald-50 text-emerald-700',
-    text: 'text-emerald-600',
+    text: 'text-emerald-700',
     dot: 'bg-emerald-500',
     bar: 'bg-emerald-500',
     hex: '#10b981',
@@ -40,9 +40,9 @@ export const STATUS_COLORS = {
     key: 'yellow',
     label: 'Kuning',
     description: '80–99%',
-    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+    badge: 'bg-amber-50 text-amber-700',
     soft: 'bg-amber-50 text-amber-700',
-    text: 'text-amber-600',
+    text: 'text-amber-700',
     dot: 'bg-amber-500',
     bar: 'bg-amber-500',
     hex: '#f59e0b',
@@ -51,9 +51,9 @@ export const STATUS_COLORS = {
     key: 'red',
     label: 'Merah',
     description: '< 80%',
-    badge: 'bg-rose-100 text-rose-800 border-rose-200',
+    badge: 'bg-rose-50 text-rose-700',
     soft: 'bg-rose-50 text-rose-700',
-    text: 'text-rose-600',
+    text: 'text-rose-700',
     dot: 'bg-rose-500',
     bar: 'bg-rose-500',
     hex: '#ef4444',
@@ -62,23 +62,23 @@ export const STATUS_COLORS = {
 
 export const ACTUAL_STATUS = {
   draft: { label: 'Draft', badge: 'bg-slate-100 text-slate-700' },
-  submitted: { label: 'Menunggu', badge: 'bg-blue-100 text-astra-800' },
-  approved: { label: 'Valid', badge: 'bg-emerald-100 text-emerald-800' },
-  rejected: { label: 'Ditolak', badge: 'bg-rose-100 text-rose-800' },
+  submitted: { label: 'Menunggu', badge: 'bg-astra-50 text-astra-700' },
+  approved: { label: 'Valid', badge: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Ditolak', badge: 'bg-rose-50 text-rose-700' },
 };
 
 export const PLAN_STATUS = {
-  open: { label: 'Terbuka', badge: 'bg-indigo-50 text-indigo-700' },
-  in_progress: { label: 'Berjalan', badge: 'bg-sky-100 text-sky-800' },
-  done: { label: 'Selesai', badge: 'bg-emerald-100 text-emerald-800' },
+  open: { label: 'Terbuka', badge: 'bg-slate-100 text-slate-700' },
+  in_progress: { label: 'Berjalan', badge: 'bg-astra-50 text-astra-700' },
+  done: { label: 'Selesai', badge: 'bg-emerald-50 text-emerald-700' },
 };
 
 export const REPORT_STATUS = {
   draft: { label: 'Draft', badge: 'bg-slate-100 text-slate-600' },
-  submitted: { label: 'Menunggu review', badge: 'bg-blue-100 text-astra-800' },
-  approved: { label: 'Disetujui', badge: 'bg-emerald-100 text-emerald-800' },
-  revision: { label: 'Revisi', badge: 'bg-rose-100 text-rose-800' },
-  special_action: { label: 'Tindak lanjut khusus', badge: 'bg-amber-100 text-amber-800' },
+  submitted: { label: 'Menunggu review', badge: 'bg-astra-50 text-astra-700' },
+  approved: { label: 'Disetujui', badge: 'bg-emerald-50 text-emerald-700' },
+  revision: { label: 'Perlu revisi', badge: 'bg-rose-50 text-rose-700' },
+  special_action: { label: 'Tindak lanjut khusus', badge: 'bg-amber-50 text-amber-700' },
 };
 
 export const REVIEW_DECISIONS = {

@@ -13,17 +13,8 @@ import {
 import { summarizePeriod, indicatorTrend } from '../lib/kpiMetrics';
 import { formatNumber, formatDate, formatShortDate, getStatusByColor, getInitials } from '../lib/formatters';
 import { ROLES, PLAN_STATUS } from '../lib/constants';
-import { Notice, LoadingBlock, EmptyBlock, ScoreBadge } from '../components/common/Notice';
+import { Notice, LoadingBlock, EmptyBlock, ScoreBadge, StatusPill } from '../components/common/Notice';
 import { ScoreTrendChart } from '../components/dashboard/ScoreTrendChart';
-
-const fieldClass =
-  'w-full px-3 py-2 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-astra-600';
-
-const PlanStatusBadge = ({ status }) => (
-  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${PLAN_STATUS[status]?.badge}`}>
-    {PLAN_STATUS[status]?.label}
-  </span>
-);
 
 const isOverdue = (plan) => {
   if (plan.status === 'done') return false;
@@ -39,7 +30,7 @@ const addDays = (dateStr, days) => {
 };
 
 // ---------------------------------------------------------------------
-// Tampilan staf: action plan yang ditujukan kepadanya (read-only)
+// Staf: action plan yang ditujukan kepadanya (hanya baca)
 // ---------------------------------------------------------------------
 const StafActionPlans = () => {
   const { currentUser } = useAuth();
@@ -48,53 +39,53 @@ const StafActionPlans = () => {
   });
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-      <h2 className="text-base font-bold text-slate-900">Action Plan untuk Saya</h2>
-      {error && <Notice type="error">{error}</Notice>}
+    <section className="card p-6">
+      <h2 className="card-title">Action plan untuk Anda</h2>
+      {error && <Notice type="error" className="mt-4">{error}</Notice>}
       {loading ? (
-        <LoadingBlock text="Memuat action plan..." />
+        <LoadingBlock text="Memuat action plan…" />
       ) : plans.length === 0 ? (
-        <EmptyBlock>Belum ada action plan yang ditujukan kepada Anda.</EmptyBlock>
+        <EmptyBlock>Belum ada action plan. Supervisor membuatnya jika ada KPI yang belum mencapai target.</EmptyBlock>
       ) : (
-        <div className="space-y-3">
+        <ul className="mt-5 divide-y divide-slate-100">
           {plans.map((p) => (
-            <div key={p.id} className="p-4 rounded-xl border border-slate-200 space-y-2.5">
-              <div className="flex items-start justify-between gap-3">
+            <li key={p.id} className="py-5 first:pt-0 last:pb-0">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-slate-900">{p.indicator_name}</p>
-                  <p className="text-[11px] text-slate-400">
-                    {p.period_name} · Target {formatNumber(p.target_value)} {p.unit} · Realisasi{' '}
-                    {formatNumber(p.actual_value)} {p.unit}
+                  <p className="font-semibold text-slate-900">{p.indicator_name}</p>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    {p.period_name}: realisasi {formatNumber(p.actual_value)} dari target {formatNumber(p.target_value)} {p.unit}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2">
                   <ScoreBadge value={p.achievement_pct} color={p.status_color} />
-                  <PlanStatusBadge status={p.status} />
+                  <StatusPill className={PLAN_STATUS[p.status]?.badge}>{PLAN_STATUS[p.status]?.label}</StatusPill>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="font-semibold text-slate-700 mb-1">Analisis penyebab</p>
-                  <p className="text-slate-600">{p.analysis}</p>
+              <dl className="mt-4 grid gap-4 text-sm md:grid-cols-2">
+                <div>
+                  <dt className="font-medium text-slate-700">Penyebab</dt>
+                  <dd className="mt-1 text-slate-600">{p.analysis}</dd>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="font-semibold text-slate-700 mb-1">Rencana tindakan</p>
-                  <p className="text-slate-600">{p.action}</p>
+                <div>
+                  <dt className="font-medium text-slate-700">Rencana tindakan</dt>
+                  <dd className="mt-1 text-slate-600">{p.action}</dd>
                 </div>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Penanggung jawab: <strong>{p.pic_name}</strong> · Batas waktu: <strong>{formatDate(p.due_date)}</strong>
+              </dl>
+              <p className={`mt-3 text-sm ${isOverdue(p) ? 'text-rose-700' : 'text-slate-500'}`}>
+                Penanggung jawab {p.pic_name}, selesai paling lambat {formatDate(p.due_date)}
+                {isOverdue(p) && ' (lewat batas)'}
               </p>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 };
 
 // ---------------------------------------------------------------------
-// Tampilan supervisor
+// Supervisor
 // ---------------------------------------------------------------------
 const SupervisorAnalisis = () => {
   const { currentUser } = useAuth();
@@ -149,7 +140,7 @@ const SupervisorAnalisis = () => {
 
   const flash = (type, text) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 4000);
+    if (type !== 'error') setTimeout(() => setMessage(null), 5000);
   };
 
   const replacePlan = (plan) =>
@@ -182,9 +173,9 @@ const SupervisorAnalisis = () => {
           });
       replacePlan(saved);
       setForm(null);
-      flash('success', existingPlan ? 'Action plan diperbarui.' : 'Action plan berhasil disimpan dan ditugaskan.');
+      flash('success', existingPlan ? 'Action plan diperbarui.' : 'Action plan disimpan dan bisa dilihat staf.');
     } catch (err) {
-      flash('error', `Gagal menyimpan action plan: ${err.message}`);
+      flash('error', `Action plan belum tersimpan: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -201,210 +192,211 @@ const SupervisorAnalisis = () => {
     }
   };
 
+
   if (error) return <Notice type="error">{error}</Notice>;
-  if (loading || !data) return <LoadingBlock text="Memuat analisis KPI..." />;
+  if (loading || !data) return <LoadingBlock text="Memuat analisis KPI…" />;
 
   const visiblePlans = plans.filter((p) => showDone || p.status !== 'done');
   const selectedStatus = selectedIssue ? getStatusByColor(selectedIssue.status_color) : null;
   const deviation = selectedIssue ? Number(selectedIssue.actual_value) - Number(selectedIssue.target_value) : 0;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div className="lg:col-span-5 space-y-6">
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-900 text-sm">KPI Perlu Tindak Lanjut</h3>
-            <span className="text-xs text-slate-400 font-medium">Merah & Kuning · {selectedPeriod?.name}</span>
-          </div>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <div className="space-y-6 lg:col-span-5">
+        <section className="card p-6">
+          <h2 className="card-title">KPI perlu tindak lanjut</h2>
+          <p className="mt-0.5 text-sm text-slate-500">Status merah dan kuning di {selectedPeriod?.name}</p>
 
           {issues.length === 0 ? (
-            <EmptyBlock>Tidak ada KPI merah/kuning yang sudah tervalidasi di periode ini.</EmptyBlock>
+            <EmptyBlock>Semua KPI yang sudah divalidasi mencapai target.</EmptyBlock>
           ) : (
-            <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+            <ul className="mt-4 max-h-[440px] space-y-2 overflow-y-auto">
               {issues.map((issue) => {
                 const isSelected = selectedIssue?.target_id === issue.target_id;
                 const hasPlan = plans.some((p) => p.score_id === issue.score_id);
                 return (
-                  <div
-                    key={issue.target_id}
-                    onClick={() => setSelectedTargetId(issue.target_id)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                      isSelected ? 'border-astra-600 bg-astra-50/50 shadow-xs' : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
+                  <li key={issue.target_id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTargetId(issue.target_id)}
+                      aria-pressed={isSelected}
+                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                        isSelected ? 'border-astra-600 bg-astra-50' : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                         {getInitials(issue.staff_name)}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{issue.staff_name}</p>
-                        <p className="text-[11px] text-slate-500">
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-900">{issue.staff_name}</span>
+                        <span className="block truncate text-sm text-slate-500">
                           {issue.indicator_name}
-                          {hasPlan && <span className="ml-1.5 text-emerald-600 font-semibold">· ada action plan</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <ScoreBadge value={issue.achievement_pct} color={issue.status_color} />
-                  </div>
+                          {hasPlan && <span className="text-emerald-700">, ada action plan</span>}
+                        </span>
+                      </span>
+                      <ScoreBadge value={issue.achievement_pct} color={issue.status_color} />
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
-        </div>
+        </section>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-900 text-sm">Action Plan {showDone ? '' : 'Berjalan'}</h3>
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
-              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
-              Tampilkan selesai
+        <section className="card p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="card-title">{showDone ? 'Semua action plan' : 'Action plan berjalan'}</h2>
+            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDone}
+                onChange={(e) => setShowDone(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-astra-600"
+              />
+              Tampilkan yang selesai
             </label>
           </div>
           {visiblePlans.length === 0 ? (
             <EmptyBlock>Belum ada action plan.</EmptyBlock>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                    <th className="pb-3 font-medium">Staf</th>
-                    <th className="pb-3 font-medium">Tindakan</th>
-                    <th className="pb-3 font-medium">Batas</th>
-                    <th className="pb-3 text-center font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {visiblePlans.map((plan) => {
-                    const overdue = isOverdue(plan);
-                    return (
-                      <tr key={plan.id} className="hover:bg-slate-50/60">
-                        <td className="py-3 font-bold text-slate-800 whitespace-nowrap">
-                          {plan.staff_name.split(' ')[0]} · {plan.indicator_name.split(' ')[0]}
-                          <p className="text-[10px] font-medium text-slate-400">{plan.period_name}</p>
-                        </td>
-                        <td className="py-3 text-slate-600 font-medium max-w-[160px]">
-                          <span className="line-clamp-2">{plan.action}</span>
-                        </td>
-                        <td className={`py-3 whitespace-nowrap ${overdue ? 'text-rose-600 font-semibold' : 'text-slate-500'}`}>
-                          {formatShortDate(plan.due_date)}
-                        </td>
-                        <td className="py-3 text-center">
-                          <select
-                            value={plan.status}
-                            disabled={updatingPlanId === plan.id}
-                            onChange={(e) => handleStatusChange(plan, e.target.value)}
-                            className={`rounded-full text-[10px] font-bold px-2 py-0.5 border-0 cursor-pointer ${PLAN_STATUS[plan.status].badge}`}
-                          >
-                            {Object.entries(PLAN_STATUS).map(([key, cfg]) => (
-                              <option key={key} value={key}>
-                                {cfg.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <ul className="mt-4 divide-y divide-slate-100">
+              {visiblePlans.map((plan) => (
+                <li key={plan.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {plan.staff_name}, {plan.indicator_name}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-sm text-slate-600">{plan.action}</p>
+                    <p className={`mt-0.5 text-xs ${isOverdue(plan) ? 'font-medium text-rose-700' : 'text-slate-500'}`}>
+                      Batas {formatShortDate(plan.due_date)}
+                      {isOverdue(plan) && ', lewat batas'}
+                    </p>
+                  </div>
+                  <select
+                    aria-label={`Status action plan ${plan.staff_name}`}
+                    value={plan.status}
+                    disabled={updatingPlanId === plan.id}
+                    onChange={(e) => handleStatusChange(plan, e.target.value)}
+                    className="field w-auto py-1 text-xs"
+                  >
+                    {Object.entries(PLAN_STATUS).map(([key, cfg]) => (
+                      <option key={key} value={key}>
+                        {cfg.label}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </section>
       </div>
 
-      <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+      <section className="card p-6 lg:col-span-7">
         {!selectedIssue ? (
-          <EmptyBlock>Pilih KPI di sebelah kiri untuk mencatat analisis dan action plan.</EmptyBlock>
+          <EmptyBlock>Pilih KPI di sebelah kiri untuk mencatat penyebab dan rencana perbaikan.</EmptyBlock>
         ) : (
           <>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
-              <h3 className="font-bold text-slate-900 text-base">
-                {selectedIssue.staff_name} · {selectedIssue.indicator_name}
-              </h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedStatus?.badge}`}>
-                {Math.round(selectedIssue.achievement_pct)}% · {selectedStatus?.label}
-              </span>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">{selectedIssue.staff_name}</h2>
+                <p className="text-sm text-slate-500">{selectedIssue.indicator_name}</p>
+              </div>
+              <StatusPill className={selectedStatus?.badge}>
+                {Math.round(selectedIssue.achievement_pct)}%, {selectedStatus?.label}
+              </StatusPill>
             </div>
 
-            {message && <Notice type={message.type} className="mb-4">{message.text}</Notice>}
+            {message && <Notice type={message.type} className="mt-4">{message.text}</Notice>}
 
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <dl className="mt-5 grid grid-cols-3 gap-4">
               <div>
-                <p className="text-xs text-slate-400 font-medium">Target</p>
-                <p className="text-2xl font-black text-slate-900 mt-0.5">
-                  {formatNumber(selectedIssue.target_value)} <span className="text-xs font-semibold text-slate-400">{selectedIssue.unit}</span>
-                </p>
+                <dt className="text-sm text-slate-500">Target</dt>
+                <dd className="mt-0.5 text-2xl font-bold tabular-nums">
+                  {formatNumber(selectedIssue.target_value)} <span className="text-sm font-medium text-slate-500">{selectedIssue.unit}</span>
+                </dd>
               </div>
               <div>
-                <p className="text-xs text-slate-400 font-medium">Realisasi</p>
-                <p className="text-2xl font-black text-slate-900 mt-0.5">
-                  {formatNumber(selectedIssue.actual_value)} <span className="text-xs font-semibold text-slate-400">{selectedIssue.unit}</span>
-                </p>
+                <dt className="text-sm text-slate-500">Realisasi</dt>
+                <dd className="mt-0.5 text-2xl font-bold tabular-nums">
+                  {formatNumber(selectedIssue.actual_value)} <span className="text-sm font-medium text-slate-500">{selectedIssue.unit}</span>
+                </dd>
               </div>
               <div>
-                <p className="text-xs text-slate-400 font-medium">Deviasi</p>
-                <p className={`text-2xl font-black mt-0.5 ${selectedStatus?.text}`}>
+                <dt className="text-sm text-slate-500">Deviasi</dt>
+                <dd className={`mt-0.5 text-2xl font-bold tabular-nums ${selectedStatus?.text}`}>
                   {deviation > 0 ? '+' : ''}
                   {formatNumber(deviation)}
-                </p>
+                </dd>
               </div>
-            </div>
+            </dl>
 
-            <ScoreTrendChart data={trend} height="h-32" color="#ef4444" label="Capaian" showTarget={false} />
+            <p className="mt-6 text-sm font-medium text-slate-700">Capaian {trendPeriods.length} bulan terakhir</p>
+            <ScoreTrendChart data={trend} height="h-40" color="#BE123C" label="Capaian" />
 
-            <form onSubmit={handleSave} className="space-y-4 text-xs mt-6">
+            <form onSubmit={handleSave} className="mt-6 space-y-4">
               {existingPlan && (
-                <Notice type="info">Action plan untuk KPI ini sudah ada, perubahan akan memperbarui data tersebut.</Notice>
+                <p className="text-sm text-slate-500">
+                  KPI ini sudah punya action plan. Perubahan di bawah akan memperbaruinya.
+                </p>
               )}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">Analisis penyebab</label>
+                <label htmlFor="analysis" className="label">Analisis penyebab</label>
                 <textarea
+                  id="analysis"
                   rows={3}
                   required
                   value={currentForm.analysis}
                   onChange={(e) => setField('analysis', e.target.value)}
-                  placeholder="Apa penyebab capaian tidak sesuai target?"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-astra-600 focus:outline-none"
+                  placeholder="Kenapa capaian di bawah target?"
+                  className="field"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">Rencana tindakan</label>
+                <label htmlFor="action" className="label">Rencana tindakan</label>
                 <textarea
+                  id="action"
                   rows={3}
                   required
                   value={currentForm.action}
                   onChange={(e) => setField('action', e.target.value)}
                   placeholder="Contoh: coaching, redistribusi beban kerja, perbaikan proses"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-astra-600 focus:outline-none"
+                  className="field"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1.5">Penanggung jawab</label>
-                  <select value={currentForm.pic_id} onChange={(e) => setField('pic_id', e.target.value)} className={fieldClass}>
+                  <label htmlFor="pic" className="label">Penanggung jawab</label>
+                  <select id="pic" value={currentForm.pic_id} onChange={(e) => setField('pic_id', e.target.value)} className="field">
                     {members.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.full_name}
-                        {m.role === ROLES.SUPERVISOR ? ' (Supervisor)' : ''}
+                        {m.role === ROLES.SUPERVISOR ? ' (supervisor)' : ''}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1.5">Batas waktu</label>
+                  <label htmlFor="due" className="label">Batas waktu</label>
                   <input
+                    id="due"
                     type="date"
                     required
                     value={currentForm.due_date}
                     onChange={(e) => setField('due_date', e.target.value)}
-                    className={fieldClass}
+                    className="field"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1.5">Status</label>
-                  <select value={currentForm.status} onChange={(e) => setField('status', e.target.value)} className={fieldClass}>
+                  <label htmlFor="plan-status" className="label">Status</label>
+                  <select
+                    id="plan-status"
+                    value={currentForm.status}
+                    onChange={(e) => setField('status', e.target.value)}
+                    className="field"
+                  >
                     {Object.entries(PLAN_STATUS).map(([key, cfg]) => (
                       <option key={key} value={key}>
                         {cfg.label}
@@ -414,27 +406,19 @@ const SupervisorAnalisis = () => {
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setForm(null)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs cursor-pointer"
-                >
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setForm(null)} className="btn-secondary">
                   Batal
                 </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-astra-800 hover:bg-astra-900 disabled:opacity-60 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
-                >
-                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  {existingPlan ? 'Perbarui Action Plan' : 'Simpan Action Plan'}
+                <button type="submit" disabled={saving} className="btn-primary">
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {existingPlan ? 'Simpan perubahan' : 'Simpan action plan'}
                 </button>
               </div>
             </form>
           </>
         )}
-      </div>
+      </section>
     </div>
   );
 };

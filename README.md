@@ -3,7 +3,7 @@
 Website untuk supervisor memantau capaian KPI tim, memvalidasi data capaian staf,
 menganalisis penyimpangan, menyusun action plan, dan melaporkan hasilnya ke manajemen.
 
-**Stack:** React 19 + Vite + Tailwind CSS · Supabase (PostgreSQL, Auth, Storage, RLS)
+**Stack:** React 19, Vite, Tailwind CSS, Supabase (PostgreSQL, Auth, Storage, RLS)
 
 ## Menjalankan
 

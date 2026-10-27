@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { ChartColumn, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '../lib/constants';
 import { Notice } from '../components/common/Notice';
@@ -20,134 +20,124 @@ export const LoginPage = () => {
     setError(null);
     setInfo(null);
     const result = await login(email.trim(), password);
-    // Jika sukses, LoginRoute otomatis mengarahkan ke dashboard
     if (!result.success) setError(result.error);
     setSubmitting(false);
   };
 
-  const handleForgot = async (e) => {
-    e.preventDefault();
+  const handleForgot = async () => {
     setError(null);
+    setInfo(null);
     if (!email.trim()) {
-      setError('Isi email terlebih dahulu, lalu klik "Lupa kata sandi?".');
+      setError('Isi email Anda dulu, lalu klik "Lupa kata sandi?".');
       return;
     }
     const result = await resetPassword(email.trim());
-    if (result.success) setInfo(`Tautan reset kata sandi dikirim ke ${email.trim()}.`);
+    if (result.success) setInfo(`Tautan untuk mengatur ulang kata sandi sudah dikirim ke ${email.trim()}.`);
     else setError(result.error);
   };
 
-  const handleSelectDemo = (demoEmail) => {
-    setEmail(demoEmail);
-    setPassword(DEMO_PASSWORD);
-  };
-
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-white">
-      <div className="lg:w-1/2 bg-astra-900 text-white p-8 sm:p-12 lg:p-20 flex flex-col justify-between relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-astra-800/40 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-astra-600/20 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
-
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-astra-500/20 backdrop-blur-sm border border-astra-400/30 flex items-center justify-center text-white">
-            <BarChart3 className="w-5 h-5" />
+    <div className="flex min-h-screen flex-col bg-white lg:flex-row">
+      <section className="flex flex-col justify-center bg-gradient-to-br from-astra-900 to-astra-600 px-8 py-12 text-white sm:px-12 lg:w-[57%] lg:px-20">
+        <div className="max-w-xl">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-astra-500">
+              <ChartColumn className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="text-lg font-bold">KPI Monitor</span>
           </div>
-          <span className="font-bold text-white text-lg tracking-tight">KPI Monitor</span>
-        </div>
-
-        <div className="relative z-10 my-16 lg:my-0 max-w-lg">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
+          <h1 className="mt-10 text-4xl font-bold leading-tight sm:text-5xl">
             Pantau kinerja tim, laporkan dengan yakin.
           </h1>
-          <p className="text-astra-100 text-base sm:text-lg mt-6 leading-relaxed">
+          <p className="mt-5 text-lg leading-relaxed text-astra-100">
             Monitoring KPI dan pelaporan ke manajemen dalam satu tempat: dari input capaian sampai review manajemen.
           </p>
         </div>
+      </section>
 
-        <div className="relative z-10 text-xs text-astra-300">
-          <p>© 2026 Politeknik Astra · Sistem Monitoring KPI</p>
-        </div>
-      </div>
-
-      <div className="lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-20">
+      <section className="flex flex-1 items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-md">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Masuk</h2>
-          <p className="text-sm text-slate-500 mt-1 mb-8">Gunakan akun yang sudah didaftarkan.</p>
+          <h2 className="text-3xl font-bold text-slate-900">Masuk</h2>
+          <p className="mt-1 text-base text-slate-500">Gunakan akun yang sudah didaftarkan.</p>
 
-          {SHOW_DEMO && (
-            <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-              <p className="font-semibold text-slate-700 mb-2">Akun demo (password: {DEMO_PASSWORD})</p>
-              <div className="grid grid-cols-3 gap-2">
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => handleSelectDemo(acc.email)}
-                    className={`p-2 rounded-lg text-left transition-colors border cursor-pointer ${
-                      email === acc.email
-                        ? 'bg-astra-50 border-astra-500 text-astra-900 font-bold'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <p className="truncate text-[11px]">{acc.label}</p>
-                    <p className="truncate font-medium text-[10px] text-slate-400">{acc.name}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <Notice type="error">{error}</Notice>
-            <Notice type="success">{info}</Notice>
+          <form onSubmit={handleLogin} className="mt-8 space-y-5" noValidate={false}>
+            {error && <Notice type="error">{error}</Notice>}
+            {info && <Notice type="success">{info}</Notice>}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email</label>
+              <label htmlFor="email" className="label">Email</label>
               <input
+                id="email"
                 type="email"
                 required
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nama@perusahaan.co.id"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-astra-600 focus:border-transparent transition-all"
+                className="field py-3 text-base"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Kata sandi</label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label htmlFor="password" className="text-sm font-medium text-slate-700">Kata sandi</label>
+                <button
+                  type="button"
+                  onClick={handleForgot}
+                  className="text-sm font-semibold text-astra-600 hover:text-astra-800 cursor-pointer"
+                >
+                  Lupa kata sandi?
+                </button>
+              </div>
               <input
+                id="password"
                 type="password"
                 required
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-astra-600 focus:border-transparent transition-all"
+                className="field py-3 text-base"
               />
             </div>
 
-            <div className="flex items-center justify-end text-xs">
-              <a href="#forgot" onClick={handleForgot} className="text-astra-800 hover:text-astra-900 font-semibold">
-                Lupa kata sandi?
-              </a>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 px-4 bg-astra-800 hover:bg-astra-900 disabled:opacity-60 active:scale-[0.99] text-white font-semibold text-sm rounded-xl shadow-md shadow-astra-800/20 transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-            >
-              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            <button type="submit" disabled={submitting} className="btn-primary w-full py-3 text-base">
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               Masuk
             </button>
 
-            <p className="text-center text-xs text-slate-400 pt-2">
+            <p className="text-center text-sm text-slate-500">
               Peran (Manajemen, Supervisor, Staf) mengikuti akun Anda.
             </p>
           </form>
+
+          {SHOW_DEMO && (
+            <div className="mt-10 border-t border-slate-200 pt-5">
+              <p className="text-sm text-slate-500">
+                Akun demo, kata sandi <span className="font-semibold text-slate-700">{DEMO_PASSWORD}</span>:
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      setEmail(acc.email);
+                      setPassword(DEMO_PASSWORD);
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-sm transition-colors cursor-pointer ${
+                      email === acc.email
+                        ? 'border-astra-600 bg-astra-50 font-semibold text-astra-800'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {acc.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 };

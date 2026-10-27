@@ -1,25 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, AlertTriangle } from 'lucide-react';
-import { Button } from '../components/common/Button';
 
-export const NotFoundPage = () => {
-  return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6">
-      <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
-        <AlertTriangle className="w-8 h-8" />
-      </div>
-      <h2 className="text-2xl font-bold text-slate-800">Halaman Tidak Ditemukan</h2>
-      <p className="text-sm text-slate-500 mt-1 max-w-sm">
-        Halaman yang Anda tuju tidak tersedia atau telah dipindahkan.
-      </p>
-      <div className="mt-6">
-        <Link to="/">
-          <Button variant="primary" icon={Home}>
-            Kembali ke Dashboard
-          </Button>
-        </Link>
-      </div>
-    </div>
-  );
-};
+export const NotFoundPage = () => (
+  <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+    <p className="text-sm font-semibold text-astra-600">404</p>
+    <h2 className="mt-2 text-2xl font-bold text-slate-900">Halaman tidak ditemukan</h2>
+    <p className="mt-2 max-w-sm text-slate-500">Alamat yang Anda buka tidak ada atau sudah dipindahkan.</p>
+    <Link to="/" className="btn-primary mt-6">
+      Kembali ke dashboard
+    </Link>
+  </div>
+);

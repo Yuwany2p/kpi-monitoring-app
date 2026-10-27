@@ -4,7 +4,7 @@ import { useFilter } from '../context/FilterContext';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { getKpiResults, validateActual } from '../services/supabaseService';
 import { calculateAchievement, getStatusByScore, formatNumber, formatDateTime } from '../lib/formatters';
-import { Notice, LoadingBlock, ScoreBadge } from '../components/common/Notice';
+import { Notice, LoadingBlock, EmptyBlock, ScoreBadge } from '../components/common/Notice';
 import { EvidenceLink } from '../components/common/EvidenceLink';
 
 const TABS = [
@@ -13,8 +13,16 @@ const TABS = [
   { key: 'rejected', label: 'Ditolak' },
 ];
 
-const selectClass =
-  'px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-astra-600 cursor-pointer';
+const Flag = ({ children, tone = 'amber' }) => (
+  <span
+    className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ${
+      tone === 'amber' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'
+    }`}
+  >
+    {tone === 'amber' && <AlertTriangle className="h-3 w-3" aria-hidden="true" />}
+    {children}
+  </span>
+);
 
 export const ValidasiDataPage = () => {
   const { selectedPeriod } = useFilter();
@@ -63,9 +71,9 @@ export const ValidasiDataPage = () => {
   const isPendingTab = activeTab === 'submitted';
   const selectedVisible = filteredItems.filter((i) => selected.has(i.actual_id));
 
-  const flash = (type, text) => {
+  const showMessage = (type, text) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 4000);
+    if (type !== 'error') setTimeout(() => setMessage(null), 5000);
   };
 
   const toggle = (id) =>
@@ -85,14 +93,14 @@ export const ValidasiDataPage = () => {
       setSelected(new Set());
       if (status === 'rejected') setRejectNote('');
       await reload();
-      flash(
+      showMessage(
         'success',
         status === 'approved'
-          ? `${targets.length} data capaian disetujui. Capaian & status warna dihitung otomatis.`
-          : `Data ${targets[0].staff_name} · ${targets[0].indicator_name} dikembalikan ke staf.`
+          ? `${targets.length} capaian disetujui. Skor dan status warna sudah dihitung.`
+          : `Capaian ${targets[0].staff_name} (${targets[0].indicator_name}) dikembalikan ke staf.`
       );
     } catch (err) {
-      flash('error', `Gagal memproses: ${err.message}`);
+      showMessage('error', `Validasi belum tersimpan: ${err.message}`);
     } finally {
       setBusyId(null);
     }
@@ -100,7 +108,8 @@ export const ValidasiDataPage = () => {
 
   const handleReject = (item) => {
     if (!rejectNote.trim()) {
-      flash('error', 'Isi catatan penolakan terlebih dahulu pada kotak di bawah tabel.');
+      showMessage('error', 'Tulis catatan penolakan di kolom bawah tabel agar staf tahu apa yang perlu diperbaiki.');
+      document.getElementById('reject-note')?.focus();
       return;
     }
     runValidation([item], 'rejected', rejectNote.trim());
@@ -109,19 +118,21 @@ export const ValidasiDataPage = () => {
   if (!selectedPeriod) return <LoadingBlock />;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
-      <div className="flex gap-8 border-b border-slate-200 text-sm font-semibold">
+    <section className="card p-6">
+      <div role="tablist" aria-label="Status data" className="flex gap-6 border-b border-slate-200">
         {TABS.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
             onClick={() => {
               setActiveTab(tab.key);
               setSelected(new Set());
             }}
-            className={`pb-3.5 transition-colors relative cursor-pointer ${
+            className={`-mb-px border-b-2 pb-3 text-sm font-semibold transition-colors cursor-pointer ${
               activeTab === tab.key
-                ? 'text-astra-800 font-bold border-b-2 border-astra-800'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'border-astra-600 text-astra-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             {tab.label} ({counts[tab.key] || 0})
@@ -129,12 +140,14 @@ export const ValidasiDataPage = () => {
         ))}
       </div>
 
-      {message && <Notice type={message.type}>{message.text}</Notice>}
-      {error && <Notice type="error">{error}</Notice>}
+      <div className="mt-4 space-y-3 empty:hidden">
+        {message && <Notice type={message.type}>{message.text}</Notice>}
+        {error && <Notice type="error">{error}</Notice>}
+      </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <select value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className={selectClass}>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          <select aria-label="Filter staf" value={filterStaff} onChange={(e) => setFilterStaff(e.target.value)} className="field w-auto">
             <option value="ALL">Semua staf</option>
             {staffOptions.map((s) => (
               <option key={s} value={s}>
@@ -142,7 +155,12 @@ export const ValidasiDataPage = () => {
               </option>
             ))}
           </select>
-          <select value={filterIndicator} onChange={(e) => setFilterIndicator(e.target.value)} className={selectClass}>
+          <select
+            aria-label="Filter indikator"
+            value={filterIndicator}
+            onChange={(e) => setFilterIndicator(e.target.value)}
+            className="field w-auto"
+          >
             <option value="ALL">Semua indikator</option>
             {indicatorOptions.map((s) => (
               <option key={s} value={s}>
@@ -154,128 +172,124 @@ export const ValidasiDataPage = () => {
 
         {isPendingTab && (
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 font-medium">{selectedVisible.length} baris dipilih</span>
+            <span className="text-sm text-slate-500">{selectedVisible.length} dipilih</span>
             <button
               onClick={() => runValidation(selectedVisible, 'approved')}
               disabled={selectedVisible.length === 0 || Boolean(busyId)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              className="btn-success"
             >
-              {busyId === 'batch' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              Setujui terpilih
+              {busyId === 'batch' && <Loader2 className="h-4 w-4 animate-spin" />}
+              Setujui yang dipilih
             </button>
           </div>
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+      <div className="-mx-2 mt-4 overflow-x-auto px-2">
+        <table className="table-base">
           <thead>
-            <tr className="border-b border-slate-200/80 text-slate-400 font-semibold">
+            <tr>
               {isPendingTab && (
-                <th className="pb-3.5 w-8">
+                <th className="w-8">
                   <input
                     type="checkbox"
+                    aria-label="Pilih semua"
                     checked={filteredItems.length > 0 && filteredItems.every((i) => selected.has(i.actual_id))}
                     onChange={(e) =>
                       setSelected(e.target.checked ? new Set(filteredItems.map((i) => i.actual_id)) : new Set())
                     }
-                    className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-500 cursor-pointer"
+                    className="h-4 w-4 rounded border-slate-300 text-astra-600 cursor-pointer"
                   />
                 </th>
               )}
-              <th className="pb-3.5 font-medium">Staf</th>
-              <th className="pb-3.5 font-medium">Indikator</th>
-              <th className="pb-3.5 font-medium">Target</th>
-              <th className="pb-3.5 font-medium">Realisasi</th>
-              <th className="pb-3.5 font-medium">Capaian</th>
-              <th className="pb-3.5 font-medium">Bukti</th>
-              <th className="pb-3.5 font-medium">{isPendingTab ? 'Pengecekan' : 'Catatan'}</th>
-              <th className="pb-3.5 text-center font-medium">{isPendingTab ? 'Aksi' : 'Divalidasi'}</th>
+              <th>Staf</th>
+              <th>Indikator</th>
+              <th className="text-right">Target</th>
+              <th className="text-right">Realisasi</th>
+              <th className="text-center">Capaian</th>
+              <th>Bukti</th>
+              <th>{isPendingTab ? 'Perlu dicek' : 'Catatan'}</th>
+              <th className="text-right">{isPendingTab ? 'Aksi' : 'Divalidasi'}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {loading ? (
               <tr>
                 <td colSpan={9}>
-                  <LoadingBlock text="Memuat data pengajuan..." />
+                  <LoadingBlock text="Memuat pengajuan…" />
                 </td>
               </tr>
             ) : filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-slate-400">
-                  {isPendingTab
-                    ? `Tidak ada data yang menunggu validasi di periode ${selectedPeriod.name}.`
-                    : 'Tidak ada data.'}
+                <td colSpan={9}>
+                  <EmptyBlock>
+                    {isPendingTab
+                      ? `Tidak ada capaian yang menunggu validasi di ${selectedPeriod.name}.`
+                      : 'Belum ada data di tab ini.'}
+                  </EmptyBlock>
                 </td>
               </tr>
             ) : (
               filteredItems.map((item) => (
-                <tr key={item.actual_id} className="hover:bg-slate-50/60 align-top">
+                <tr key={item.actual_id} className="align-top">
                   {isPendingTab && (
-                    <td className="py-4">
+                    <td>
                       <input
                         type="checkbox"
+                        aria-label={`Pilih ${item.staff_name} ${item.indicator_name}`}
                         checked={selected.has(item.actual_id)}
                         onChange={() => toggle(item.actual_id)}
-                        className="w-4 h-4 rounded text-astra-800 border-slate-300 focus:ring-astra-500 cursor-pointer"
+                        className="h-4 w-4 rounded border-slate-300 text-astra-600 cursor-pointer"
                       />
                     </td>
                   )}
-                  <td className="py-4 font-bold text-slate-900">{item.staff_name}</td>
-                  <td className="py-4 text-slate-700 font-medium">
+                  <td className="font-semibold text-slate-900">{item.staff_name}</td>
+                  <td>
                     {item.indicator_name}
-                    {item.notes && <p className="text-[11px] text-slate-400 italic mt-0.5">“{item.notes}”</p>}
+                    {item.notes && <p className="mt-0.5 max-w-xs text-sm text-slate-500">“{item.notes}”</p>}
                   </td>
-                  <td className="py-4 text-slate-600 whitespace-nowrap">
+                  <td className="whitespace-nowrap text-right tabular-nums text-slate-600">
                     {formatNumber(item.target_value)} {item.unit}
                   </td>
-                  <td className="py-4 font-bold text-slate-900 whitespace-nowrap">
+                  <td className="whitespace-nowrap text-right font-semibold tabular-nums">
                     {formatNumber(item.actual_value)} {item.unit}
                   </td>
-                  <td className="py-4">
+                  <td className="text-center">
                     <ScoreBadge value={item.achievement} color={item.color} />
                   </td>
-                  <td className="py-4">
+                  <td>
                     <EvidenceLink path={item.evidence_url} />
                   </td>
-                  <td className="py-4">
+                  <td>
                     {isPendingTab ? (
-                      <div className="flex flex-col gap-1 items-start">
-                        {item.largeDeviation && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 text-amber-900">
-                            <AlertTriangle className="w-3 h-3 text-amber-700" /> Selisih besar
-                          </span>
-                        )}
-                        {!item.evidence_url && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-600">
-                            Tanpa bukti
-                          </span>
-                        )}
+                      <div className="flex flex-col items-start gap-1">
+                        {item.largeDeviation && <Flag>Selisih besar</Flag>}
+                        {!item.evidence_url && <Flag tone="slate">Tanpa bukti</Flag>}
                       </div>
                     ) : (
-                      <span className="text-slate-500 italic">{item.validation_note || '-'}</span>
+                      <span className="text-slate-600">{item.validation_note || '–'}</span>
                     )}
                   </td>
-                  <td className="py-4 text-center">
+                  <td className="whitespace-nowrap text-right">
                     {isPendingTab ? (
-                      <div className="inline-flex items-center gap-2">
+                      <>
                         <button
                           onClick={() => runValidation([item], 'approved')}
                           disabled={Boolean(busyId)}
-                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-semibold text-[11px] transition-colors cursor-pointer"
+                          className="btn-success btn-sm"
                         >
                           Setujui
                         </button>
                         <button
                           onClick={() => handleReject(item)}
                           disabled={Boolean(busyId)}
-                          className="px-3 py-1 border border-rose-300 hover:bg-rose-50 disabled:opacity-50 text-rose-600 rounded-lg font-semibold text-[11px] transition-colors cursor-pointer"
+                          className="btn-danger-outline btn-sm ml-2"
                         >
                           Tolak
                         </button>
-                      </div>
+                      </>
                     ) : (
-                      <span className="text-slate-500 whitespace-nowrap">{formatDateTime(item.validated_at)}</span>
+                      <span className="text-sm text-slate-500">{formatDateTime(item.validated_at)}</span>
                     )}
                   </td>
                 </tr>
@@ -286,19 +300,18 @@ export const ValidasiDataPage = () => {
       </div>
 
       {isPendingTab && (
-        <div className="pt-2">
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-            Catatan penolakan (wajib jika menolak)
-          </label>
+        <div className="mt-6">
+          <label htmlFor="reject-note" className="label">Catatan penolakan (wajib jika menolak)</label>
           <textarea
+            id="reject-note"
             rows={3}
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
-            placeholder="Contoh: Mohon lampirkan rekap tiket dari sistem sebelum diajukan ulang."
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-astra-600 focus:outline-none"
+            placeholder="Contoh: Lampirkan rekap tiket dari sistem sebelum diajukan ulang."
+            className="field"
           />
         </div>
       )}
-    </div>
+    </section>
   );
 };

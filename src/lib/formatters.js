@@ -101,3 +101,11 @@ export const fileNameFromPath = (path) => {
   // format penyimpanan: <timestamp>-<nama asli>
   return last.replace(/^\d+-/, '');
 };
+
+const GENERIC_WORDS = ['waktu', 'jumlah', 'rata-rata', 'tingkat', 'persentase', 'total', 'nilai', 'indeks'];
+
+/** Nama pendek indikator untuk judul kolom ("Waktu Respons Rata-rata" -> "Respons"). */
+export const shortIndicatorName = (name = '') => {
+  const words = name.split(' ').filter(Boolean);
+  return words.find((w) => !GENERIC_WORDS.includes(w.toLowerCase())) || words[0] || name;
+};

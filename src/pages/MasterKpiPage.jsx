@@ -12,8 +12,8 @@ import {
   getKpiTargets,
   upsertKpiTargets,
 } from '../services/supabaseService';
-import { directionSymbol } from '../lib/formatters';
-import { Notice, LoadingBlock } from '../components/common/Notice';
+import { directionSymbol, formatNumber } from '../lib/formatters';
+import { Notice, LoadingBlock, EmptyBlock } from '../components/common/Notice';
 
 const EMPTY_FORM = {
   code: '',
@@ -24,9 +24,6 @@ const EMPTY_FORM = {
   frequency: 'Bulanan',
   data_source: '',
 };
-
-const inputClass =
-  'w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-astra-600';
 
 export const MasterKpiPage = () => {
   const { currentUser } = useAuth();
@@ -82,7 +79,7 @@ export const MasterKpiPage = () => {
 
   const flash = (type, text) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 4000);
+    if (type !== 'error') setTimeout(() => setMessage(null), 5000);
   };
 
   // ---------------- Indikator ----------------
@@ -181,7 +178,7 @@ export const MasterKpiPage = () => {
       return;
     }
     if (!rows.length) {
-      flash('info', 'Tidak ada perubahan target.');
+      flash('info', 'Belum ada target yang diubah.');
       return;
     }
     setSavingTargets(true);
@@ -219,7 +216,7 @@ export const MasterKpiPage = () => {
         return;
       }
       setDraftTargets(next);
-      flash('info', `${copied} target disalin dari ${previousPeriod.name}. Klik "Simpan Target" untuk menyimpan.`);
+      flash('info', `${copied} target disalin dari ${previousPeriod.name}. Simpan untuk menerapkan.`);
     } catch (err) {
       flash('error', err.message);
     }
@@ -229,85 +226,75 @@ export const MasterKpiPage = () => {
     <div className="space-y-6">
       {message && <Notice type={message.type}>{message.text}</Notice>}
 
-      {/* Daftar Indikator KPI */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-slate-900">Daftar Indikator KPI</h2>
-          <button
-            onClick={handleOpenAdd}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-astra-800 hover:bg-astra-900 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-          >
-            <Plus className="w-4 h-4" /> Tambah KPI
+      <section className="card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="card-title">Daftar indikator KPI</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Total bobot indikator aktif{' '}
+              <span className={`font-semibold ${totalWeight === 100 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {formatNumber(totalWeight)}%
+              </span>
+              {totalWeight !== 100 && ', seharusnya 100%'}
+            </p>
+          </div>
+          <button onClick={handleOpenAdd} className="btn-primary">
+            <Plus className="h-4 w-4" aria-hidden="true" /> Tambah KPI
           </button>
         </div>
 
-        {indicatorsQuery.error && <Notice type="error">{indicatorsQuery.error}</Notice>}
+        {indicatorsQuery.error && <Notice type="error" className="mt-4">{indicatorsQuery.error}</Notice>}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="-mx-2 mt-5 overflow-x-auto px-2">
+          <table className="table-base">
             <thead>
-              <tr className="border-b border-slate-200/80 text-slate-400 font-semibold">
-                <th className="pb-3.5 font-medium">Kode</th>
-                <th className="pb-3.5 font-medium">Nama KPI</th>
-                <th className="pb-3.5 font-medium">Satuan</th>
-                <th className="pb-3.5 font-medium">Arah</th>
-                <th className="pb-3.5 font-medium">Bobot</th>
-                <th className="pb-3.5 font-medium">Frekuensi</th>
-                <th className="pb-3.5 font-medium">Sumber data</th>
-                <th className="pb-3.5 text-center font-medium">Aksi</th>
+              <tr>
+                <th>Kode</th>
+                <th>Nama KPI</th>
+                <th>Satuan</th>
+                <th>Arah</th>
+                <th className="text-right">Bobot</th>
+                <th>Frekuensi</th>
+                <th>Sumber data</th>
+                <th className="text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {indicatorsQuery.loading ? (
                 <tr>
                   <td colSpan={8}>
-                    <LoadingBlock text="Memuat indikator..." />
+                    <LoadingBlock text="Memuat indikator…" />
                   </td>
                 </tr>
               ) : indicators.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
-                    Belum ada indikator KPI. Klik <strong>+ Tambah KPI</strong> untuk menambahkan.
+                  <td colSpan={8}>
+                    <EmptyBlock>Belum ada indikator. Tambahkan KPI pertama untuk mulai menetapkan target.</EmptyBlock>
                   </td>
                 </tr>
               ) : (
                 indicators.map((kpi) => (
-                  <tr key={kpi.id} className={`hover:bg-slate-50/70 ${kpi.is_active ? '' : 'opacity-50'}`}>
-                    <td className="py-4 font-bold text-slate-900">{kpi.code}</td>
-                    <td className="py-4 font-semibold text-slate-800">
+                  <tr key={kpi.id} className={kpi.is_active ? '' : 'text-slate-400'}>
+                    <td className="font-semibold">{kpi.code}</td>
+                    <td className="font-medium">
                       {kpi.name}
-                      {!kpi.is_active && (
-                        <span className="ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-[10px] text-slate-500">
-                          Nonaktif
-                        </span>
-                      )}
+                      {!kpi.is_active && <span className="ml-2 text-xs text-slate-400">(nonaktif)</span>}
                     </td>
-                    <td className="py-4 text-slate-600">{kpi.unit}</td>
-                    <td className="py-4 text-slate-600">
-                      {kpi.direction === 'higher_better' ? 'Semakin tinggi' : 'Semakin rendah'}
-                    </td>
-                    <td className="py-4 font-semibold text-slate-800">{Number(kpi.weight)}%</td>
-                    <td className="py-4 text-slate-600">{kpi.frequency}</td>
-                    <td className="py-4 text-slate-600">{kpi.data_source || '-'}</td>
-                    <td className="py-4 text-center">
-                      <div className="inline-flex items-center gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(kpi)}
-                          className="px-3 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-medium text-[11px] transition-colors cursor-pointer"
-                        >
-                          Ubah
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(kpi)}
-                          className={`px-3 py-1 rounded-lg border font-medium text-[11px] transition-colors cursor-pointer ${
-                            kpi.is_active
-                              ? 'border-rose-200 hover:bg-rose-50 text-rose-600'
-                              : 'border-emerald-200 hover:bg-emerald-50 text-emerald-700'
-                          }`}
-                        >
-                          {kpi.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                        </button>
-                      </div>
+                    <td>{kpi.unit}</td>
+                    <td>{kpi.direction === 'higher_better' ? 'Semakin tinggi' : 'Semakin rendah'}</td>
+                    <td className="text-right tabular-nums">{formatNumber(kpi.weight)}%</td>
+                    <td>{kpi.frequency}</td>
+                    <td>{kpi.data_source || '–'}</td>
+                    <td className="text-right whitespace-nowrap">
+                      <button onClick={() => handleOpenEdit(kpi)} className="btn-secondary btn-sm">
+                        Ubah
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(kpi)}
+                        className={`ml-2 btn-sm ${kpi.is_active ? 'btn-danger-outline' : 'btn-secondary'}`}
+                      >
+                        {kpi.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -315,97 +302,77 @@ export const MasterKpiPage = () => {
             </tbody>
           </table>
         </div>
+      </section>
 
-        <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end items-center gap-2 text-xs">
-          <span className="text-slate-500">Total bobot indikator aktif:</span>
-          <strong className={totalWeight === 100 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
-            {totalWeight}%
-          </strong>
-          {totalWeight !== 100 && <span className="text-rose-600">(seharusnya 100%)</span>}
-        </div>
-      </div>
-
-      {/* Target per Staf */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+      <section className="card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
-              Target per Staf · {selectedPeriod?.name || '-'}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">{teamLabel}</p>
+            <h2 className="card-title">Target per staf, {selectedPeriod?.name || '-'}</h2>
+            <p className="mt-0.5 text-sm text-slate-500">{teamLabel}</p>
           </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={handleCopyLastPeriod}
-              disabled={!previousPeriod}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <Copy className="w-3.5 h-3.5" /> Salin dari periode lalu
+          <div className="flex flex-wrap gap-2">
+            <button onClick={handleCopyLastPeriod} disabled={!previousPeriod} className="btn-secondary">
+              <Copy className="h-4 w-4" aria-hidden="true" /> Salin dari periode lalu
             </button>
-            <button
-              onClick={handleSaveTargets}
-              disabled={savingTargets || dirtyCount === 0}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-astra-800 hover:bg-astra-900 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-            >
-              {savingTargets ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Simpan Target{dirtyCount > 0 ? ` (${dirtyCount})` : ''}
+            <button onClick={handleSaveTargets} disabled={savingTargets || dirtyCount === 0} className="btn-primary">
+              {savingTargets ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {dirtyCount > 0 ? `Simpan ${dirtyCount} perubahan` : 'Simpan target'}
             </button>
           </div>
         </div>
 
         {selectedPeriod?.status === 'closed' && (
-          <Notice type="warning" className="mb-4">
-            Periode ini sudah ditutup. Perubahan target akan memengaruhi perhitungan capaian historis.
+          <Notice type="warning" className="mt-4">
+            Periode ini sudah ditutup. Mengubah target akan mengubah capaian yang sudah dilaporkan.
           </Notice>
         )}
-        {targetsQuery.error && <Notice type="error">{targetsQuery.error}</Notice>}
+        {targetsQuery.error && <Notice type="error" className="mt-4">{targetsQuery.error}</Notice>}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="-mx-2 mt-5 overflow-x-auto px-2">
+          <table className="table-base">
             <thead>
-              <tr className="border-b border-slate-200/80 text-slate-500 font-semibold">
-                <th className="pb-3.5 font-medium">Staf</th>
+              <tr>
+                <th>Staf</th>
                 {activeIndicators.map((ind) => (
-                  <th key={ind.id} className="pb-3.5 font-medium">
+                  <th key={ind.id}>
                     {ind.name} ({directionSymbol(ind.direction)} {ind.unit})
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {targetsQuery.loading ? (
                 <tr>
                   <td colSpan={activeIndicators.length + 1}>
-                    <LoadingBlock text="Memuat target..." />
+                    <LoadingBlock text="Memuat target…" />
                   </td>
                 </tr>
               ) : staffList.length === 0 ? (
                 <tr>
-                  <td colSpan={activeIndicators.length + 1} className="py-8 text-center text-slate-400">
-                    Belum ada staf aktif di tim ini.
+                  <td colSpan={activeIndicators.length + 1}>
+                    <EmptyBlock>Belum ada staf aktif di tim ini.</EmptyBlock>
                   </td>
                 </tr>
               ) : (
                 staffList.map((staf) => (
-                  <tr key={staf.id} className="hover:bg-slate-50/60">
-                    <td className="py-4">
-                      <p className="font-bold text-slate-800">{staf.full_name}</p>
-                      {multiTeam && <p className="text-[10px] text-slate-400">{staf.teams?.name}</p>}
+                  <tr key={staf.id}>
+                    <td>
+                      <p className="whitespace-nowrap font-semibold text-slate-900">{staf.full_name}</p>
+                      {multiTeam && <p className="text-xs text-slate-500">{staf.teams?.name}</p>}
                     </td>
                     {activeIndicators.map((ind) => {
                       const dirty = draftTargets[staf.id]?.[ind.id] !== undefined;
                       return (
-                        <td key={ind.id} className="py-4">
+                        <td key={ind.id}>
                           <input
                             type="number"
                             min="0"
                             step="any"
+                            aria-label={`Target ${ind.name} untuk ${staf.full_name}`}
                             value={getTargetValue(staf.id, ind.id)}
                             onChange={(e) => handleTargetChange(staf.id, ind.id, e.target.value)}
-                            placeholder="-"
-                            className={`w-28 px-3 py-1.5 rounded-xl border text-slate-900 font-medium text-xs focus:ring-2 focus:ring-astra-600 focus:outline-none ${
-                              dirty ? 'border-amber-400 bg-amber-50/50' : 'border-slate-300'
-                            }`}
+                            placeholder="–"
+                            className={`field w-28 tabular-nums ${dirty ? 'border-amber-400 bg-amber-50' : ''}`}
                           />
                         </td>
                       );
@@ -416,80 +383,95 @@ export const MasterKpiPage = () => {
             </tbody>
           </table>
         </div>
-      </div>
+        {dirtyCount > 0 && (
+          <p className="mt-3 text-sm text-amber-700">Kolom berwarna kuning belum disimpan.</p>
+        )}
+      </section>
 
-      {/* Modal Tambah / Ubah KPI */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-base">
-                {editingKpi ? 'Ubah Indikator KPI' : 'Tambah Indikator KPI'}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="kpi-modal-title"
+          onKeyDown={(e) => e.key === 'Escape' && setIsModalOpen(false)}
+        >
+          <div className="w-full max-w-lg rounded-xl bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <h3 id="kpi-modal-title" className="card-title">
+                {editingKpi ? 'Ubah indikator KPI' : 'Tambah indikator KPI'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"
+                className="rounded-md p-1 text-slate-400 hover:bg-slate-100 cursor-pointer"
+                aria-label="Tutup"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveKpi} className="p-6 space-y-4 text-xs">
-              <Notice type="error">{formError}</Notice>
+            <form onSubmit={handleSaveKpi} className="space-y-4 p-6">
+              {formError && <Notice type="error">{formError}</Notice>}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Kode KPI</label>
+                  <label htmlFor="kpi-code" className="label">Kode</label>
                   <input
+                    id="kpi-code"
                     type="text"
                     required
                     maxLength={20}
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    className={`${inputClass} font-mono`}
+                    className="field"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Satuan</label>
+                  <label htmlFor="kpi-unit" className="label">Satuan</label>
                   <input
+                    id="kpi-unit"
                     type="text"
                     required
                     maxLength={20}
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className={inputClass}
+                    className="field"
                     placeholder="tiket, menit, %"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nama KPI</label>
+                <label htmlFor="kpi-name" className="label">Nama KPI</label>
                 <input
+                  id="kpi-name"
                   type="text"
                   required
                   maxLength={120}
+                  autoFocus
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className={inputClass}
+                  className="field"
                   placeholder="Contoh: Tiket Terselesaikan"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Arah Penilaian</label>
+                  <label htmlFor="kpi-dir" className="label">Arah penilaian</label>
                   <select
+                    id="kpi-dir"
                     value={formData.direction}
                     onChange={(e) => setFormData({ ...formData, direction: e.target.value })}
-                    className={`${inputClass} bg-white`}
+                    className="field"
                   >
-                    <option value="higher_better">Semakin tinggi (Realisasi ÷ Target)</option>
-                    <option value="lower_better">Semakin rendah (Target ÷ Realisasi)</option>
+                    <option value="higher_better">Semakin tinggi semakin baik</option>
+                    <option value="lower_better">Semakin rendah semakin baik</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Bobot (%)</label>
+                  <label htmlFor="kpi-weight" className="label">Bobot (%)</label>
                   <input
+                    id="kpi-weight"
                     type="number"
                     required
                     min="0"
@@ -497,51 +479,50 @@ export const MasterKpiPage = () => {
                     step="any"
                     value={formData.weight}
                     onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                    className={inputClass}
+                    className="field"
                   />
                 </div>
               </div>
+              <p className="-mt-2 text-xs text-slate-500">
+                {formData.direction === 'lower_better'
+                  ? 'Capaian = Target ÷ Realisasi × 100%, cocok untuk waktu respons atau jumlah komplain.'
+                  : 'Capaian = Realisasi ÷ Target × 100%.'}
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Frekuensi</label>
+                  <label htmlFor="kpi-freq" className="label">Frekuensi</label>
                   <select
+                    id="kpi-freq"
                     value={formData.frequency}
                     onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                    className={`${inputClass} bg-white`}
+                    className="field"
                   >
                     <option value="Bulanan">Bulanan</option>
                     <option value="Mingguan">Mingguan</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Sumber Data</label>
+                  <label htmlFor="kpi-source" className="label">Sumber data</label>
                   <input
+                    id="kpi-source"
                     type="text"
                     maxLength={100}
                     value={formData.data_source}
                     onChange={(e) => setFormData({ ...formData, data_source: e.target.value })}
-                    className={inputClass}
+                    className="field"
                     placeholder="Sistem tiket, log sistem"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium cursor-pointer"
-                >
+              <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">
                   Batal
                 </button>
-                <button
-                  type="submit"
-                  disabled={savingKpi}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-astra-800 hover:bg-astra-900 disabled:opacity-60 text-white font-semibold cursor-pointer"
-                >
-                  {savingKpi && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Simpan Indikator
+                <button type="submit" disabled={savingKpi} className="btn-primary">
+                  {savingKpi && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editingKpi ? 'Simpan perubahan' : 'Tambah KPI'}
                 </button>
               </div>
             </form>
