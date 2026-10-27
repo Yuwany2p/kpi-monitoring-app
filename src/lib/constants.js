@@ -1,83 +1,75 @@
-export const PERSPEKTIF_AMS = [
-  'Keuangan',
-  'Pelanggan',
-  'Proses Bisnis Internal',
-  'Pembelajaran & Pertumbuhan'
-];
-
-export const PRIORITAS_SASARAN = [
-  'Prioritas Utama',
-  'Penting',
-  'Rutin'
-];
-
-export const STATUS_TINDAKAN = [
-  'Open',
-  'In Progress',
-  'Resolved',
-  'Closed'
-];
-
-export const PERSPEKTIF_COLORS = {
-  'Keuangan': {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-    text: 'text-emerald-700',
-    badge: 'bg-emerald-100 text-emerald-800',
-    chart: '#10b981'
-  },
-  'Pelanggan': {
-    bg: 'bg-sky-50',
-    border: 'border-sky-200',
-    text: 'text-sky-700',
-    badge: 'bg-sky-100 text-sky-800',
-    chart: '#0ea5e9'
-  },
-  'Proses Bisnis Internal': {
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-200',
-    text: 'text-indigo-700',
-    badge: 'bg-indigo-100 text-indigo-800',
-    chart: '#6366f1'
-  },
-  'Pembelajaran & Pertumbuhan': {
-    bg: 'bg-purple-50',
-    border: 'border-purple-200',
-    text: 'text-purple-700',
-    badge: 'bg-purple-100 text-purple-800',
-    chart: '#a855f7'
-  }
+export const ROLES = {
+  SUPERVISOR: 'supervisor',
+  STAF: 'staf',
+  MANAJEMEN: 'manajemen',
 };
 
-export const STATUS_KPI_COLORS = {
-  HIJAU: {
-    label: 'Tercapai',
-    badge: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    dot: 'bg-emerald-500'
+export const DEMO_USERS = [
+  {
+    id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    full_name: 'Hendra Wijaya',
+    email: 'hendra@perusahaan.co.id',
+    role: 'supervisor',
+    team_name: 'Tim Customer Service',
+    initials: 'HW',
   },
-  KUNING: {
-    label: 'Perhatian',
-    badge: 'bg-amber-100 text-amber-800 border-amber-300',
-    dot: 'bg-amber-500'
+  {
+    id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    full_name: 'Dewi Lestari',
+    email: 'dewi@perusahaan.co.id',
+    role: 'staf',
+    team_name: 'Tim Customer Service',
+    initials: 'DL',
   },
-  MERAH: {
-    label: 'Kritis / Under-target',
-    badge: 'bg-rose-100 text-rose-800 border-rose-300',
-    dot: 'bg-rose-500'
-  }
+  {
+    id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    full_name: 'Maya Anggraini',
+    email: 'maya@perusahaan.co.id',
+    role: 'manajemen',
+    team_name: 'Manajemen Eksekutif',
+    initials: 'MA',
+  },
+];
+
+export const KPI_DIRECTIONS = {
+  HIGHER_BETTER: 'higher_better',
+  LOWER_BETTER: 'lower_better',
 };
 
-export const BULAN_LIST = [
-  { value: 1, label: 'Januari' },
-  { value: 2, label: 'Februari' },
-  { value: 3, label: 'Maret' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'Mei' },
-  { value: 6, label: 'Juni' },
-  { value: 7, label: 'Juli' },
-  { value: 8, label: 'Agustus' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'Oktober' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'Desember' }
+export const STATUS_COLORS = {
+  GREEN: {
+    key: 'green',
+    label: 'Hijau',
+    description: '≥ 100%',
+    badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    dot: 'bg-emerald-500',
+    hex: '#10b981',
+  },
+  YELLOW: {
+    key: 'yellow',
+    label: 'Kuning',
+    description: '80–99%',
+    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+    dot: 'bg-amber-500',
+    hex: '#f59e0b',
+  },
+  RED: {
+    key: 'red',
+    label: 'Merah',
+    description: '< 80%',
+    badge: 'bg-rose-100 text-rose-800 border-rose-200',
+    dot: 'bg-rose-500',
+    hex: '#ef4444',
+  },
+};
+
+export const PERIODS = [
+  { id: '99999999-9999-9999-9999-999999999999', name: 'Oktober 2026', status: 'active' },
+  { id: '88888888-8888-8888-8888-888888888888', name: 'September 2026', status: 'closed' },
+  { id: '77777777-7777-7777-7777-777777777777', name: 'Agustus 2026', status: 'closed' },
+];
+
+export const TEAMS = [
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Tim Customer Service' },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Tim Sales' },
 ];

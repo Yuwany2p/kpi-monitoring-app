@@ -1,97 +1,110 @@
 import React from 'react';
-import { Calendar, Building2, Database, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { ChevronDown, Database } from 'lucide-react';
 import { useFilter } from '../../context/FilterContext';
-import { useDepartemen } from '../../hooks/useDepartemen';
-import { BULAN_LIST } from '../../lib/constants';
+import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../lib/constants';
 import { isSupabaseConfigured } from '../../lib/supabaseClient';
 
 export const Navbar = () => {
-  const {
-    selectedTahun,
-    setSelectedTahun,
-    selectedBulan,
-    setSelectedBulan,
-    selectedDepartemen,
-    setSelectedDepartemen,
-  } = useFilter();
+  const location = useLocation();
+  const { selectedPeriod, setSelectedPeriod, selectedTeam, setSelectedTeam, periods, teams } =
+    useFilter();
+  const { role } = useAuth();
 
-  const { departemenList } = useDepartemen();
+  const getPageInfo = () => {
+    switch (location.pathname) {
+      case '/kelola-kpi':
+        return { breadcrumb: 'Beranda / Kelola KPI & Target', title: 'Kelola KPI & Target' };
+      case '/validasi':
+        return { breadcrumb: 'Beranda / Validasi Data', title: 'Validasi Data Capaian' };
+      case '/analisis-tindak-lanjut':
+        return { breadcrumb: 'Beranda / Analisis & Tindak Lanjut', title: 'Analisis & Tindak Lanjut' };
+      case '/laporan-kpi':
+        return { breadcrumb: 'Beranda / Laporan KPI', title: 'Laporan KPI ke Manajemen' };
+      case '/review-laporan':
+        return { breadcrumb: 'Beranda / Review Laporan', title: 'Review Laporan KPI' };
+      case '/input-capaian':
+        return { breadcrumb: 'Beranda / Input Capaian', title: 'Input Capaian KPI' };
+      case '/riwayat-pengajuan':
+        return { breadcrumb: 'Beranda / Riwayat Pengajuan', title: 'Riwayat Pengajuan Capaian' };
+      case '/tindak-lanjut-staf':
+        return { breadcrumb: 'Beranda / Tindak Lanjut', title: 'Tindak Lanjut & Action Plan' };
+      default:
+        return {
+          breadcrumb: 'Beranda / Dashboard',
+          title: role === ROLES.STAF ? 'Dashboard Capaian Saya' : 'Dashboard KPI Tim',
+        };
+    }
+  };
+
+  const { breadcrumb, title } = getPageInfo();
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-6 py-3.5 no-print">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Supabase Status Indicator */}
+    <header className="bg-white border-b border-slate-200/80 px-8 py-5 no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Title and Breadcrumb */}
+        <div>
+          <p className="text-xs font-medium text-slate-400">{breadcrumb}</p>
+          <h1 className="text-xl font-bold text-slate-900 mt-0.5 tracking-tight">{title}</h1>
+        </div>
+
+        {/* Filters & Status */}
         <div className="flex items-center gap-3">
+          {/* Supabase Connection Status Badge */}
           <div
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+            className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold border ${
               isSupabaseConfigured
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-amber-50 text-amber-800 border-amber-200'
             }`}
             title={
               isSupabaseConfigured
-                ? 'Terhubung langsung ke Supabase'
-                : 'Mode Simulasi Aktif (.env.local belum diisi kredensial Supabase)'
+                ? 'Terhubung langsung ke database Supabase'
+                : 'Belum terhubung ke Supabase URL/Key, menggunakan data mock lokal'
             }
           >
-            <Database className="w-3.5 h-3.5" />
-            <span>{isSupabaseConfigured ? 'Supabase Live' : 'Demo Mode (Local)'}</span>
-            {isSupabaseConfigured ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            ) : (
-              <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-            )}
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isSupabaseConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+              }`}
+            />
+            <span>{isSupabaseConfigured ? 'Supabase: Live DB' : 'Mode: Mock Demo'}</span>
           </div>
-          <span className="text-xs text-slate-400 hidden sm:inline">| UAS Teknik Supervisi</span>
-        </div>
 
-        {/* Global Filter Bar: Periode & Departemen */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Departemen Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+          {/* Period Selector */}
+          <div className="relative">
             <select
-              value={selectedDepartemen}
-              onChange={(e) => setSelectedDepartemen(e.target.value)}
-              className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="appearance-none bg-white border border-slate-300 hover:border-slate-400 rounded-xl px-4 py-2 pr-9 text-xs font-semibold text-slate-700 shadow-xs focus:outline-none focus:ring-2 focus:ring-astra-600 cursor-pointer"
             >
-              <option value="ALL">Semua Departemen</option>
-              {departemenList.map((dep) => (
-                <option key={dep.id} value={dep.id}>
-                  {dep.nama_departemen}
+              {periods.map((p) => (
+                <option key={p.id} value={p.name}>
+                  Periode: {p.name}
                 </option>
               ))}
             </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Bulan Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedBulan}
-              onChange={(e) => setSelectedBulan(Number(e.target.value))}
-              className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer"
-            >
-              {BULAN_LIST.map((b) => (
-                <option key={b.value} value={b.value}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Tahun Filter */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
-            <select
-              value={selectedTahun}
-              onChange={(e) => setSelectedTahun(Number(e.target.value))}
-              className="bg-transparent font-medium text-slate-700 focus:outline-none cursor-pointer"
-            >
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
-              <option value={2027}>2027</option>
-            </select>
-          </div>
+          {/* Team Selector (For Supervisor & Manajemen) */}
+          {role !== ROLES.STAF && (
+            <div className="relative">
+              <select
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value)}
+                className="appearance-none bg-white border border-slate-300 hover:border-slate-400 rounded-xl px-4 py-2 pr-9 text-xs font-semibold text-slate-700 shadow-xs focus:outline-none focus:ring-2 focus:ring-astra-600 cursor-pointer"
+              >
+                {teams.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          )}
         </div>
       </div>
     </header>

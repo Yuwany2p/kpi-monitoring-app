@@ -1,25 +1,21 @@
 import React, { createContext, useContext, useState } from 'react';
+import { PERIODS, TEAMS } from '../lib/constants';
 
 const FilterContext = createContext(null);
 
 export const FilterProvider = ({ children }) => {
-  const currentDate = new Date();
-  const [selectedTahun, setSelectedTahun] = useState(2026);
-  const [selectedBulan, setSelectedBulan] = useState(10); // Bulan Oktober
-  const [selectedDepartemen, setSelectedDepartemen] = useState('ALL');
-  const [selectedPerspektif, setSelectedPerspektif] = useState('ALL');
+  const [selectedPeriod, setSelectedPeriod] = useState(PERIODS[0].name);
+  const [selectedTeam, setSelectedTeam] = useState(TEAMS[0].name);
 
   return (
     <FilterContext.Provider
       value={{
-        selectedTahun,
-        setSelectedTahun,
-        selectedBulan,
-        setSelectedBulan,
-        selectedDepartemen,
-        setSelectedDepartemen,
-        selectedPerspektif,
-        setSelectedPerspektif,
+        selectedPeriod,
+        setSelectedPeriod,
+        selectedTeam,
+        setSelectedTeam,
+        periods: PERIODS,
+        teams: TEAMS,
       }}
     >
       {children}
