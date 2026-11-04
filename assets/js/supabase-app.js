@@ -638,52 +638,83 @@ function renderGanttChart() {
 async function loadKaryawan() {
     if (!currentUser) return;
     const tbody = document.getElementById('karyawanTableBody');
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4">Memuat data dari Supabase...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Memuat data dari Supabase...</td></tr>`;
 
     const { data: users, error } = await db.from('karyawan').select('*').order('npk');
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Gagal memuat karyawan: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat karyawan: ${error.message}</td></tr>`;
         return;
     }
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Belum ada data karyawan.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada data karyawan.</td></tr>`;
         return;
     }
 
     // Refresh cache
     users.forEach(u => { karyawanCache[u.npk] = u; });
 
-    tbody.innerHTML = users.map(u => `
+    tbody.innerHTML = users.map(u => {
+        const initial = u.nama_karyawan ? u.nama_karyawan.charAt(0).toUpperCase() : 'U';
+        const isMale = (u.gender || '').toLowerCase() === 'laki-laki';
+
+        let roleBadgeStyle = 'background-color: #475569; color: #FFFFFF;';
+        if (u.role === 'KAPROD') roleBadgeStyle = 'background-color: #DC2626; color: #FFFFFF;';
+        else if (u.role === 'SEKPROD') roleBadgeStyle = 'background-color: #2563EB; color: #FFFFFF;';
+        else if (u.role === 'KAUPT') roleBadgeStyle = 'background-color: #06B6D4; color: #082F49;';
+        else if (u.role === 'PIC_ACTIVITY') roleBadgeStyle = 'background-color: #0A192F; color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3);';
+
+        return `
         <tr>
-            <td class="fw-bold">${u.npk}</td>
-            <td>
-                <div class="fw-semibold text-dark">${u.nama_karyawan}</div>
-                <small class="text-muted">${u.gender || '-'}</small>
+            <td class="py-3 px-3">
+                <span class="badge bg-light text-dark border px-2.5 py-1.5 fw-bold font-monospace" style="font-size: 0.9rem;">${u.npk}</span>
             </td>
-            <td>
-                <span class="badge ${u.role === 'KAPROD' ? 'bg-danger' : (u.role === 'SEKPROD' ? 'bg-primary' : (u.role === 'KAUPT' ? 'bg-info text-dark' : 'bg-secondary'))}">${u.role}</span>
+            <td class="py-3 px-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold shadow-xs flex-shrink-0" 
+                         style="width: 38px; height: 38px; background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%); font-size: 0.9rem;">
+                        ${initial}
+                    </div>
+                    <div class="fw-bold text-dark" style="font-size: 0.95rem;">${u.nama_karyawan}</div>
+                </div>
             </td>
-            <td>${u.bagian || '-'}</td>
-            <td><code>${u.username}</code></td>
-            <td>
-                <span class="badge ${u.status_aktif ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'}">
+            <td class="py-3 px-3">
+                <div class="d-flex align-items-center gap-2 fw-semibold text-dark" style="font-size: 0.95rem;">
+                    <i class="bi ${isMale ? 'bi-gender-male text-primary' : 'bi-gender-female text-danger'} fs-5"></i>
+                    <span>${u.gender || '-'}</span>
+                </div>
+            </td>
+            <td class="py-3 px-3">
+                <span class="badge px-3 py-1.5 rounded-2 fw-semibold" style="${roleBadgeStyle} font-size: 0.825rem; letter-spacing: 0.3px;">
+                    ${u.role}
+                </span>
+            </td>
+            <td class="py-3 px-3">
+                <span class="fw-semibold text-dark" style="font-size: 0.95rem;">${u.bagian || '-'}</span>
+            </td>
+            <td class="py-3 px-3">
+                <span class="fw-semibold text-dark" style="font-size: 0.95rem;">${u.username}</span>
+            </td>
+            <td class="py-3 px-3">
+                <span class="badge ${u.status_aktif ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-1.5 rounded-pill fw-semibold" style="font-size: 0.8rem;">
+                    <i class="bi ${u.status_aktif ? 'bi-check-circle-fill text-success' : 'bi-slash-circle-fill text-danger'} me-1"></i>
                     ${u.status_aktif ? 'AKTIF' : 'NONAKTIF'}
                 </span>
             </td>
-            <td class="text-end">
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-warning" title="Ubah Status Aktif" onclick="toggleKaryawan('${u.npk}', ${u.status_aktif})">
-                        <i class="bi ${u.status_aktif ? 'bi-lock' : 'bi-unlock'}"></i>
+            <td class="py-3 px-3 text-end">
+                <div class="d-inline-flex gap-2">
+                    <button class="btn btn-sm btn-light border text-warning shadow-xs rounded-2 px-2.5 py-1.5" title="Ubah Status Aktif" onclick="toggleKaryawan('${u.npk}', ${u.status_aktif})">
+                        <i class="bi ${u.status_aktif ? 'bi-lock-fill' : 'bi-unlock-fill'}"></i>
                     </button>
                     ${currentUser.npk !== u.npk ? `
-                    <button class="btn btn-outline-danger" title="Hapus Karyawan" onclick="deleteKaryawan('${u.npk}', '${u.nama_karyawan}')">
-                        <i class="bi bi-trash"></i>
+                    <button class="btn btn-sm btn-light border text-danger shadow-xs rounded-2 px-2.5 py-1.5" title="Hapus Karyawan" onclick="deleteKaryawan('${u.npk}', '${(u.nama_karyawan || '').replace(/'/g, "\\'")}')">
+                        <i class="bi bi-trash-fill"></i>
                     </button>` : ''}
                 </div>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function openKaryawanModal() {
