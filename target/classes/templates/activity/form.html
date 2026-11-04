@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title th:text="${isNew ? 'Tambah Aktivitas' : 'Edit Aktivitas'} + ' - Sistem KPI Prodi/UPT'">Form Aktivitas</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="mb-4">
+            <a th:href="@{'/kpi/detail/' + ${kpi.idKpi}}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-2">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Detail KPI
+            </a>
+            <h3 class="fw-bold text-dark mb-1" th:text="${isNew ? 'Tambah Detail Aktivitas Baru' : 'Edit Detail Aktivitas'}">Form Aktivitas</h3>
+            <p class="text-muted mb-0">KPI Induk: <strong class="text-dark" th:text="${kpi.namaKpi}">Nama KPI</strong> (<span th:text="${kpi.idKpi}">ID</span>)</p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Info Bobot Tersedia -->
+                <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4">
+                    <i class="bi bi-info-circle-fill fs-4 me-3 text-primary"></i>
+                    <div>
+                        <div class="fw-bold">Alokasi Bobot Aktivitas</div>
+                        <div class="small">Sisa bobot yang masih tersedia untuk KPI ini: <strong class="text-primary" th:text="${availableBobot} + '%'">0%</strong>. Bobot yang Anda masukkan tidak boleh melebihi sisa ini.</div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <form th:action="${isNew ? '/activity/create/' + kpi.idKpi : '/activity/edit/' + detailKpi.idDetailKpi}"
+                              th:object="${detailKpi}" method="POST">
+
+                            <div class="row g-3">
+                                <!-- Nama Aktivitas -->
+                                <div class="col-12">
+                                    <label for="namaAktivitasKpi" class="form-label fw-semibold">Nama Aktivitas / Kegiatan <span class="text-danger">*</span></label>
+                                    <textarea id="namaAktivitasKpi" th:field="*{namaAktivitasKpi}" class="form-control" rows="3"
+                                              placeholder="Contoh: Penyusunan borang akreditasi prodi kriteria 4 dan 5" maxlength="250" required></textarea>
+                                </div>
+
+                                <!-- Persentase Bobot -->
+                                <div class="col-md-6">
+                                    <label for="persentaseBobot" class="form-label fw-semibold">Bobot Aktivitas (%) <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="number" id="persentaseBobot" th:field="*{persentaseBobot}" class="form-control"
+                                               min="0.01" th:max="${availableBobot}" step="0.01" placeholder="40.00" required>
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <div class="form-text small">Maksimal: <span th:text="${availableBobot} + '%'">0%</span></div>
+                                </div>
+
+                                <!-- Deadline -->
+                                <div class="col-md-6">
+                                    <label for="deadline" class="form-label fw-semibold">Batas Waktu (Deadline) <span class="text-danger">*</span></label>
+                                    <input type="date" id="deadline" th:field="*{deadline}" class="form-control" required>
+                                    <div class="form-text small">Target penyelesaian oleh PIC.</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                <a th:href="@{'/kpi/detail/' + ${kpi.idKpi}}" class="btn btn-light px-4">Batal</a>
+                                <button type="submit" class="btn btn-navy px-4">
+                                    <i class="bi bi-save me-1"></i> Simpan Aktivitas
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

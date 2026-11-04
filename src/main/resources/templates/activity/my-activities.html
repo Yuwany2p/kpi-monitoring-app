@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title>Aktivitas Saya - Sistem KPI Prodi/UPT</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">Aktivitas Saya (Penugasan PIC)</h3>
+                <p class="text-muted mb-0">Kelola dan unggah progres serta berkas bukti capaian kinerja Anda.</p>
+            </div>
+            <div>
+                <a th:href="@{/activity/pick-list}" class="btn btn-outline-primary d-flex align-items-center gap-2">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Ambil Aktivitas Baru</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3 p-md-4">
+                <table class="table table-hover custom-table align-middle"
+                       data-toggle="table"
+                       data-search="true"
+                       data-pagination="true"
+                       data-page-size="10"
+                       data-search-align="left">
+                    <thead>
+                        <tr>
+                            <th data-field="id" data-sortable="true">ID Aktivitas</th>
+                            <th data-field="kpi" data-sortable="true">KPI Induk</th>
+                            <th data-field="nama" data-sortable="true">Nama Aktivitas</th>
+                            <th data-field="bobot" data-sortable="true">Bobot</th>
+                            <th data-field="progres" data-sortable="true" style="min-width: 140px;">Progres Saat Ini</th>
+                            <th data-field="deadline" data-sortable="true">Batas Waktu</th>
+                            <th data-field="status" data-sortable="true">Status</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${myActivities.isEmpty()}">
+                            <td colspan="8" class="text-center py-4 text-muted">Anda belum mengambil aktivitas apapun. Klik "Ambil Aktivitas Baru" untuk memulai.</td>
+                        </tr>
+                        <tr th:each="a : ${myActivities}">
+                            <td><code class="fw-bold" th:text="${a.idDetailKpi}">DKP0000001</code></td>
+                            <td>
+                                <div class="fw-semibold text-dark" th:text="${a.kpi.namaKpi}">Nama KPI</div>
+                                <small class="text-muted" th:text="${a.kpi.periode}">2026</small>
+                            </td>
+                            <td>
+                                <a th:href="@{'/activity/detail/' + ${a.idDetailKpi}}" class="fw-bold text-dark text-decoration-none" th:text="${a.namaAktivitasKpi}">Nama Aktivitas</a>
+                            </td>
+                            <td class="fw-bold text-primary" th:text="${a.persentaseBobot} + '%'">0%</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1 progress-compact">
+                                        <div class="progress-bar bg-success" role="progressbar" th:style="'width: ' + ${a.persentaseProgres} + '%'"></div>
+                                    </div>
+                                    <span class="small fw-bold" th:text="${a.persentaseProgres} + '%'">0%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="small" th:text="${#temporals.format(a.deadline, 'dd MMM yyyy')}">31 Des 2026</span>
+                            </td>
+                            <td>
+                                <span th:if="${a.status.name() == 'PICKED'}" class="badge bg-primary">PICKED (Dikerjakan)</span>
+                                <span th:if="${a.status.name() == 'SUBMITTED'}" class="badge bg-warning text-dark">SUBMITTED (Review L1)</span>
+                                <span th:if="${a.status.name() == 'REVISION'}" class="badge bg-danger">REVISION (Perlu Revisi)</span>
+                                <span th:if="${a.status.name() == 'APPROVED_L1'}" class="badge bg-info text-dark">APPROVED L1 (Review Final)</span>
+                                <span th:if="${a.status.name() == 'DONE'}" class="badge bg-success">DONE (Selesai)</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <!-- View Detail & Logs -->
+                                    <a th:href="@{'/activity/detail/' + ${a.idDetailKpi}}" class="btn btn-outline-secondary" title="Detail & Riwayat">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+
+                                    <!-- Upload Progress Button (Active if PICKED or REVISION) -->
+                                    <a th:if="${a.status.name() == 'PICKED' || a.status.name() == 'REVISION'}"
+                                       th:href="@{'/progress/upload/' + ${a.idDetailKpi}}"
+                                       class="btn btn-navy" title="Unggah Progres & Bukti">
+                                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Unggah Progres
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
