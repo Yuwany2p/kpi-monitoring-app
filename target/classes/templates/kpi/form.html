@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title th:text="${isNew ? 'Buat Header KPI' : 'Edit Header KPI'} + ' - Sistem KPI Prodi/UPT'">Form KPI</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="mb-4">
+            <a th:href="@{/kpi}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-2">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar KPI
+            </a>
+            <h3 class="fw-bold text-dark mb-1" th:text="${isNew ? 'Buat Header KPI Baru' : 'Edit Header KPI'}">Form KPI</h3>
+            <p class="text-muted mb-0">Tentukan target strategis, bobot keseluruhan, dan tunjuk penanggung jawab (SEKPROD / KAUPT).</p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <form th:action="${isNew ? '/kpi/create' : '/kpi/edit/' + kpi.idKpi}"
+                              th:object="${kpi}" method="POST">
+
+                            <div class="row g-3">
+                                <!-- Nama KPI -->
+                                <div class="col-12">
+                                    <label for="namaKpi" class="form-label fw-semibold">Nama Sasaran KPI <span class="text-danger">*</span></label>
+                                    <input type="text" id="namaKpi" th:field="*{namaKpi}" class="form-control"
+                                           placeholder="Contoh: Peningkatan Mutu Pembelajaran & Akreditasi Unggul" maxlength="100" required>
+                                </div>
+
+                                <!-- Persentase Bobot KPI -->
+                                <div class="col-md-6">
+                                    <label for="persentaseBobot" class="form-label fw-semibold">Bobot KPI (%) <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="number" id="persentaseBobot" th:field="*{persentaseBobot}" class="form-control"
+                                               min="1" max="100" step="0.01" placeholder="100.00" required>
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <div class="form-text small">Bobot proporsional sasaran ini (biasanya 100%).</div>
+                                </div>
+
+                                <!-- Periode -->
+                                <div class="col-md-6">
+                                    <label for="periode" class="form-label fw-semibold">Tahun / Periode <span class="text-danger">*</span></label>
+                                    <input type="text" id="periode" th:field="*{periode}" class="form-control"
+                                           placeholder="Contoh: 2026, 2026/2027 Ganjil" maxlength="20" required>
+                                </div>
+
+                                <!-- Level -->
+                                <div class="col-md-6">
+                                    <label for="level" class="form-label fw-semibold">Level Organisasi</label>
+                                    <select id="level" th:field="*{level}" class="form-select">
+                                        <option value="Prodi">Program Studi (Prodi)</option>
+                                        <option value="UPT">Unit Pelaksana Teknis (UPT)</option>
+                                        <option value="Jurusan">Jurusan / Fakultas</option>
+                                    </select>
+                                </div>
+
+                                <!-- Kategori -->
+                                <div class="col-md-6">
+                                    <label for="kategori" class="form-label fw-semibold">Kategori Bidang</label>
+                                    <select id="kategori" th:field="*{kategori}" class="form-select">
+                                        <option value="Akademik">Akademik & Kurikulum</option>
+                                        <option value="Penelitian & Pengabdian">Penelitian & Pengabdian</option>
+                                        <option value="Tata Kelola & SDM">Tata Kelola & SDM</option>
+                                        <option value="Sarana & Prasarana">Sarana & Prasarana Laboratorium</option>
+                                        <option value="Kerjasama Industri">Kerjasama Industri & Alumni</option>
+                                    </select>
+                                </div>
+
+                                <!-- Status -->
+                                <div class="col-md-6">
+                                    <label for="status" class="form-label fw-semibold">Status Awal</label>
+                                    <select id="status" th:field="*{status}" class="form-select">
+                                        <option th:each="st : ${statuses}" th:value="${st}" th:text="${st}">STATUS</option>
+                                    </select>
+                                    <div class="form-text small text-muted">Hanya KPI <strong>PUBLISHED</strong> yang tampil ke SEKPROD/KAUPT.</div>
+                                </div>
+
+                                <!-- Penanggung Jawab Selection (Multi-select) -->
+                                <div class="col-12 mt-4 pt-3 border-top">
+                                    <label class="form-label fw-semibold d-block">
+                                        Pilih Penanggung Jawab (SEKPROD / KAUPT) <span class="text-danger">*</span>
+                                    </label>
+                                    <p class="text-muted small mb-2">Penanggung jawab yang dipilih berhak membuat dan mengelola Detail Activity di bawah KPI ini serta melakukan Approval Level 1.</p>
+
+                                    <div class="row g-2">
+                                        <div class="col-md-6" th:each="candidate : ${pjCandidates}">
+                                            <div class="border rounded-3 p-3 d-flex align-items-center gap-3">
+                                                <input class="form-check-input mt-0" type="checkbox"
+                                                       name="penanggungJawabNpks"
+                                                       th:value="${candidate.npk}"
+                                                       th:id="'pj_' + ${candidate.npk}"
+                                                       th:checked="${selectedPjNpks != null && selectedPjNpks.contains(candidate.npk)}">
+                                                <label class="form-check-label flex-grow-1" th:for="'pj_' + ${candidate.npk}">
+                                                    <div class="fw-bold text-dark small" th:text="${candidate.namaKaryawan}">Nama Karyawan</div>
+                                                    <div class="d-flex align-items-center gap-1 mt-1">
+                                                        <span class="badge bg-primary-subtle text-primary border" th:text="${candidate.role}">ROLE</span>
+                                                        <span class="small text-muted" th:text="' - ' + ${candidate.bagian}">Bagian</span>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                <a th:href="@{/kpi}" class="btn btn-light px-4">Batal</a>
+                                <button type="submit" class="btn btn-navy px-4">
+                                    <i class="bi bi-save me-1"></i> Simpan Header KPI
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
