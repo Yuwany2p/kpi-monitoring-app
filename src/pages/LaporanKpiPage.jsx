@@ -1,20 +1,23 @@
 import React, { useMemo, useState } from 'react';
-import { FileDown, Send, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { FileDown, Send, FileSpreadsheet, Loader2, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFilter } from '../context/FilterContext';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { getKpiResults, getActionPlans, getMyReport, saveReport, uploadReportFile } from '../services/supabaseService';
 import { buildReportContent, DEFAULT_SECTIONS } from '../lib/reportContent';
 import { exportReportPdf, exportReportExcel } from '../lib/reportExport';
-import { REPORT_STATUS, REVIEW_DECISIONS } from '../lib/constants';
+import { REPORT_STATUS } from '../lib/constants';
 import { formatDateTime } from '../lib/formatters';
-import { Notice, LoadingBlock, StatusPill } from '../components/common/Notice';
+import { Notice, LoadingBlock, StatusPill, EmptyState } from '../components/common/Notice';
+import { Section } from '../components/common/Section';
+import { Dialog } from '../components/common/Dialog';
 import { ReportPreview } from '../components/laporan/ReportPreview';
+import { ReviewHistory } from '../components/laporan/ReviewHistory';
 
 const SECTION_LABELS = {
   ringkasan: 'Ringkasan capaian',
   tren: 'Grafik tren',
-  kpiWarna: 'Daftar KPI merah & kuning',
+  kpiWarna: 'Daftar KPI merah dan kuning',
   actionPlan: 'Action plan',
 };
 
@@ -129,119 +132,134 @@ export const LaporanKpiPage = () => {
   if (loading || !data || !content) return <LoadingBlock text="Menyusun laporan…" />;
 
   const statusCfg = report ? REPORT_STATUS[report.status] : null;
+  const sendLabel = report?.status === 'revision' ? 'Kirim revisi ke manajemen' : 'Kirim ke manajemen';
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <div className="no-print space-y-6 lg:col-span-5">
-        <section className="card space-y-5 p-6">
-          <h2 className="card-title">Pengaturan laporan</h2>
-
-          {message && <Notice type={message.type}>{message.text}</Notice>}
-
-          <dl className="grid grid-cols-2 gap-4 text-sm">
+        <section className="card" aria-labelledby="report-settings-title">
+          <div className="card-header">
             <div>
-              <dt className="text-slate-500">Periode</dt>
-              <dd className="mt-0.5 font-medium text-slate-900">{selectedPeriod.name}</dd>
+              <h2 id="report-settings-title" className="section-title">
+                Pengaturan laporan
+              </h2>
+              <p className="section-desc">
+                {currentUser.team_name || '–'}, {selectedPeriod.name}
+              </p>
             </div>
-            <div>
-              <dt className="text-slate-500">Tim</dt>
-              <dd className="mt-0.5 font-medium text-slate-900">{currentUser.team_name || '–'}</dd>
-            </div>
-          </dl>
-
-          <fieldset disabled={!canSend}>
-            <legend className="label">Isi laporan</legend>
-            <div className="space-y-2">
-              {Object.entries(SECTION_LABELS).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={currentSections[key] !== false}
-                    onChange={(e) => setSections({ ...currentSections, [key]: e.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-astra-600"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div>
-            <label htmlFor="report-notes" className="label">Catatan supervisor</label>
-            <textarea
-              id="report-notes"
-              rows={4}
-              disabled={!canSend}
-              value={currentNotes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Kondisi tim, kendala utama, dan rencana bulan depan"
-              className="field"
-            />
+            <StatusPill className={statusCfg?.badge || 'bg-slate-100 text-slate-600'}>{statusCfg?.label || 'Belum dikirim'}</StatusPill>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" onClick={() => handleExport('pdf')} disabled={Boolean(busy)} className="btn-secondary">
-              {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-              Ekspor PDF
-            </button>
-            <button type="button" onClick={() => handleExport('excel')} disabled={Boolean(busy)} className="btn-secondary">
-              {busy === 'excel' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-              Ekspor Excel
-            </button>
-          </div>
+          <div className="card-body space-y-5">
+            {message && (
+              <Notice type={message.type} onDismiss={() => setMessage(null)}>
+                {message.text}
+              </Notice>
+            )}
 
-          {canSend ? (
-            confirming ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                <p>
-                  {content.pending} data masih menunggu validasi dan belum masuk perhitungan. Kirim laporan sekarang
-                  atau validasi dulu?
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button onClick={send} className="btn-primary btn-sm">Tetap kirim</button>
-                  <button onClick={() => setConfirming(false)} className="btn-secondary btn-sm">Batal</button>
-                </div>
+            <fieldset disabled={!canSend}>
+              <legend className="label">Bagian yang dimuat</legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {Object.entries(SECTION_LABELS).map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 has-[:checked]:border-astra-200 has-[:checked]:bg-astra-50/50 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-70"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={currentSections[key] !== false}
+                      onChange={(e) => setSections({ ...currentSections, [key]: e.target.checked })}
+                      className="h-4 w-4 rounded border-control text-astra-600 focus:ring-astra-600"
+                    />
+                    {label}
+                  </label>
+                ))}
               </div>
-            ) : (
-              <button type="button" onClick={handleSendClick} disabled={Boolean(busy)} className="btn-primary w-full py-2.5">
-                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {report?.status === 'revision' ? 'Kirim revisi ke manajemen' : 'Kirim ke manajemen'}
+            </fieldset>
+
+            <div>
+              <label htmlFor="report-notes" className="label">
+                Catatan supervisor
+              </label>
+              <textarea
+                id="report-notes"
+                rows={4}
+                disabled={!canSend}
+                value={currentNotes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Kondisi tim, kendala utama, dan rencana bulan depan"
+                className="field"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 border-t border-slate-200 px-4 py-4 sm:px-5">
+            {canSend ? (
+              <button type="button" onClick={handleSendClick} disabled={Boolean(busy)} className="btn-primary btn-lg w-full">
+                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
+                {sendLabel}
               </button>
-            )
-          ) : (
-            <p className="text-sm text-slate-600">
-              Dikirim {formatDateTime(report.submitted_at)}. Status: <strong>{statusCfg?.label}</strong>.
-            </p>
-          )}
+            ) : (
+              <p className="text-sm text-slate-600">
+                Dikirim {formatDateTime(report.submitted_at)}. Laporan dikunci sampai manajemen meminta revisi.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+              <span className="mr-1 text-[13px] text-slate-500">Unduh salinan:</span>
+              <button type="button" onClick={() => handleExport('pdf')} disabled={Boolean(busy)} className="btn-ghost btn-sm">
+                {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4" aria-hidden="true" />}
+                PDF
+              </button>
+              <button type="button" onClick={() => handleExport('excel')} disabled={Boolean(busy)} className="btn-ghost btn-sm">
+                {busy === 'excel' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+                )}
+                Excel
+              </button>
+            </div>
+          </div>
         </section>
 
-        <section className="card p-6">
-          <h2 className="card-title">Feedback manajemen</h2>
+        <Section title="Feedback manajemen">
           {!report?.report_reviews?.length ? (
-            <p className="mt-2 text-sm text-slate-500">Belum ada feedback untuk laporan periode ini.</p>
+            <EmptyState compact icon={MessageSquare}>
+              Belum ada feedback untuk laporan periode ini.
+            </EmptyState>
           ) : (
-            <ul className="mt-4 space-y-4">
-              {report.report_reviews.map((rv) => (
-                <li key={rv.id} className="border-l-2 border-astra-200 pl-4">
-                  <p className="text-sm font-semibold text-slate-900">{REVIEW_DECISIONS[rv.decision]}</p>
-                  <p className="mt-1 text-sm text-slate-700">{rv.feedback}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {rv.reviewer?.full_name}, {formatDateTime(rv.reviewed_at)}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <ReviewHistory reviews={report.report_reviews} />
           )}
-        </section>
+        </Section>
       </div>
 
-      <section className="card p-6 sm:p-8 lg:col-span-7">
-        <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-          <h2 className="card-title">Pratinjau laporan</h2>
-          <StatusPill className={statusCfg?.badge || 'bg-slate-100 text-slate-600'}>{statusCfg?.label || 'Draft'}</StatusPill>
+      <Section className="lg:col-span-7" title="Pratinjau laporan" description="Tampilan ini yang diterima manajemen">
+        <div className="sm:px-2 sm:py-2">
+          <ReportPreview content={previewContent} />
         </div>
-        <ReportPreview content={previewContent} />
-      </section>
+      </Section>
+
+      <Dialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Kirim laporan sekarang?"
+        size="sm"
+        footer={
+          <>
+            <button type="button" onClick={() => setConfirming(false)} className="btn-secondary">
+              Validasi dulu
+            </button>
+            <button type="button" onClick={send} className="btn-primary">
+              Tetap kirim
+            </button>
+          </>
+        }
+      >
+        <p className="text-slate-600">
+          {content.pending} data masih menunggu validasi dan belum masuk perhitungan skor. Laporan yang sudah dikirim
+          tidak bisa diubah sampai manajemen meminta revisi.
+        </p>
+      </Dialog>
     </div>
   );
 };

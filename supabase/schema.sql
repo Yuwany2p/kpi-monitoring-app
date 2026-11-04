@@ -13,6 +13,8 @@
 --   * reports.content (jsonb) -> snapshot isi laporan saat dikirim, agar
 --     yang direview manajemen sama persis dengan yang dikirim supervisor
 --   * view v_kpi_results untuk dashboard / laporan
+--   * goal_categories + kpi_indicators.perspective/category_id -> kategori
+--     sasaran (prioritas utama/penting/rutin + bobot) dan empat perspektif
 -- ====================================================================
 
 -- --------------------------------------------------------------------
@@ -26,6 +28,7 @@ DROP TABLE IF EXISTS public.kpi_scores CASCADE;
 DROP TABLE IF EXISTS public.kpi_actuals CASCADE;
 DROP TABLE IF EXISTS public.kpi_targets CASCADE;
 DROP TABLE IF EXISTS public.kpi_indicators CASCADE;
+DROP TABLE IF EXISTS public.goal_categories CASCADE;
 DROP TABLE IF EXISTS public.periods CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.teams CASCADE;
@@ -50,6 +53,8 @@ DROP TYPE IF EXISTS public.score_color CASCADE;
 DROP TYPE IF EXISTS public.plan_status CASCADE;
 DROP TYPE IF EXISTS public.report_status CASCADE;
 DROP TYPE IF EXISTS public.review_decision CASCADE;
+DROP TYPE IF EXISTS public.kpi_perspective CASCADE;
+DROP TYPE IF EXISTS public.goal_priority CASCADE;
 
 -- --------------------------------------------------------------------
 -- 1. ENUM
@@ -62,6 +67,8 @@ CREATE TYPE public.score_color     AS ENUM ('green', 'yellow', 'red');
 CREATE TYPE public.plan_status     AS ENUM ('open', 'in_progress', 'done');
 CREATE TYPE public.report_status   AS ENUM ('draft', 'submitted', 'approved', 'revision', 'special_action');
 CREATE TYPE public.review_decision AS ENUM ('approved', 'revision', 'special_action');
+CREATE TYPE public.kpi_perspective AS ENUM ('keuangan', 'pelanggan', 'proses_internal', 'pembelajaran');
+CREATE TYPE public.goal_priority   AS ENUM ('utama', 'penting', 'rutin');
 
 -- --------------------------------------------------------------------
 -- 2. TABEL
@@ -96,6 +103,15 @@ CREATE TABLE public.periods (
   CONSTRAINT periods_date_check CHECK (end_date >= start_date)
 );
 
+CREATE TABLE public.goal_categories (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        varchar(80) NOT NULL UNIQUE,
+  priority    public.goal_priority NOT NULL DEFAULT 'rutin',
+  weight      numeric(5,2) NOT NULL DEFAULT 0 CHECK (weight >= 0 AND weight <= 100),
+  description text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE public.kpi_indicators (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code        varchar(20) NOT NULL UNIQUE,
@@ -105,6 +121,8 @@ CREATE TABLE public.kpi_indicators (
   weight      numeric(5,2) NOT NULL DEFAULT 0 CHECK (weight >= 0 AND weight <= 100),
   frequency   varchar(10) NOT NULL DEFAULT 'Bulanan',
   data_source varchar(100),
+  perspective public.kpi_perspective,
+  category_id uuid REFERENCES public.goal_categories(id) ON DELETE SET NULL,
   created_by  uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   is_active   boolean NOT NULL DEFAULT true,
   created_at  timestamptz NOT NULL DEFAULT now()
@@ -409,12 +427,17 @@ SELECT
   s.id               AS score_id,
   s.achievement_pct,
   s.weighted_score,
-  s.status_color
+  s.status_color,
+  i.perspective,
+  i.category_id,
+  gc.name            AS category_name,
+  gc.priority        AS category_priority
 FROM public.kpi_targets t
 JOIN public.periods pr        ON pr.id = t.period_id
 JOIN public.profiles p        ON p.id = t.staff_id
 LEFT JOIN public.teams tm     ON tm.id = p.team_id
 JOIN public.kpi_indicators i  ON i.id = t.indicator_id
+LEFT JOIN public.goal_categories gc ON gc.id = i.category_id
 LEFT JOIN public.kpi_actuals a ON a.target_id = t.id
 LEFT JOIN public.kpi_scores s  ON s.actual_id = a.id;
 
@@ -425,6 +448,7 @@ ALTER TABLE public.teams          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.periods        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kpi_indicators ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.goal_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kpi_targets    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kpi_actuals    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kpi_scores     ENABLE ROW LEVEL SECURITY;
@@ -449,6 +473,12 @@ CREATE POLICY profiles_manage ON public.profiles FOR UPDATE TO authenticated
 -- periods
 CREATE POLICY periods_select ON public.periods FOR SELECT TO authenticated USING (true);
 CREATE POLICY periods_write  ON public.periods FOR ALL TO authenticated
+  USING (public.auth_role() IN ('manajemen', 'supervisor'))
+  WITH CHECK (public.auth_role() IN ('manajemen', 'supervisor'));
+
+-- goal_categories: semua bisa lihat, supervisor & manajemen kelola
+CREATE POLICY categories_select ON public.goal_categories FOR SELECT TO authenticated USING (true);
+CREATE POLICY categories_write  ON public.goal_categories FOR ALL TO authenticated
   USING (public.auth_role() IN ('manajemen', 'supervisor'))
   WITH CHECK (public.auth_role() IN ('manajemen', 'supervisor'));
 

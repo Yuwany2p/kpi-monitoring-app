@@ -22,6 +22,8 @@ export default {
           navy: '#13295C',
         },
         canvas: '#F3F6FB',
+        // Border kontrol form: kontras 3:1 terhadap putih (WCAG 1.4.11)
+        control: '#8592A5',
       },
     },
   },

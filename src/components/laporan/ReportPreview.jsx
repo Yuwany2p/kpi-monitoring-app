@@ -1,13 +1,16 @@
 import React from 'react';
 import { ScoreTrendChart } from '../dashboard/ScoreTrendChart';
 import { ScoreBadge, StatusPill } from '../common/Notice';
-import { formatNumber, formatShortDate, getStatusByColor, shortIndicatorName } from '../../lib/formatters';
+import { formatNumber, formatShortDate, getStatusByColor } from '../../lib/formatters';
 import { mainIssueText, planStatusLabel } from '../../lib/reportContent';
 
-const Metric = ({ label, value, className = 'text-slate-900' }) => (
+const Metric = ({ label, value, dot }) => (
   <div>
-    <dt className="text-sm text-slate-500">{label}</dt>
-    <dd className={`mt-0.5 text-3xl font-bold tabular-nums ${className}`}>{value}</dd>
+    <dt className="flex items-center gap-1.5 text-[13px] text-slate-500">
+      {dot && <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />}
+      {label}
+    </dt>
+    <dd className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">{value}</dd>
   </div>
 );
 
@@ -22,7 +25,7 @@ export const ReportPreview = ({ content, compact = false }) => {
     <div className="space-y-8">
       {!compact && (
         <header>
-          <h3 className="text-2xl font-bold text-slate-900">Laporan KPI {content.team_name}</h3>
+          <h3 className="text-xl font-semibold tracking-tight">Laporan KPI {content.team_name}</h3>
           <p className="mt-1 text-sm text-slate-500">
             Periode {content.period_name}, disusun oleh {content.author_name}
           </p>
@@ -33,12 +36,12 @@ export const ReportPreview = ({ content, compact = false }) => {
         <div>
           <dl className="flex flex-wrap gap-x-10 gap-y-4">
             <Metric label="Skor tim" value={content.team_score === null ? '–' : `${Math.round(content.team_score)}%`} />
-            <Metric label="Merah" value={content.counts?.red ?? 0} className="text-rose-700" />
-            <Metric label="Kuning" value={content.counts?.yellow ?? 0} className="text-amber-700" />
+            <Metric label="Merah" value={content.counts?.red ?? 0} dot="bg-rose-500" />
+            <Metric label="Kuning" value={content.counts?.yellow ?? 0} dot="bg-amber-500" />
             <Metric label="Action plan" value={(content.plans || []).length} />
           </dl>
           {content.scored < content.total && (
-            <p className="mt-3 text-sm text-amber-800">
+            <p className="meta mt-3">
               {content.total - content.scored} dari {content.total} data belum divalidasi saat laporan disusun.
             </p>
           )}
@@ -47,15 +50,17 @@ export const ReportPreview = ({ content, compact = false }) => {
 
       <div className={`grid grid-cols-1 gap-8 ${sideBySide ? 'md:grid-cols-2' : ''}`}>
         {sections.ringkasan !== false && (
-          <div className="overflow-x-auto">
+          <div className="-mx-4 overflow-x-auto sm:-mx-5">
             <table className="table-base">
               <thead>
                 <tr>
                   <th>Staf</th>
                   {!compact &&
                     (content.indicators || []).map((i) => (
-                      <th key={i.code} className="text-center" title={i.name}>
-                        {shortIndicatorName(i.name)}
+                      <th key={i.code} scope="col" className="text-center">
+                        <abbr title={i.name} className="no-underline">
+                          {i.code}
+                        </abbr>
                       </th>
                     ))}
                   <th className="text-right">Skor</th>
@@ -88,7 +93,7 @@ export const ReportPreview = ({ content, compact = false }) => {
 
         {sections.tren !== false && (
           <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">Tren skor tim</p>
+            <h4 className="mb-2 text-sm font-semibold">Tren skor tim</h4>
             <ScoreTrendChart data={content.trend || []} height="h-48" label="Skor tim" />
           </div>
         )}
@@ -96,7 +101,7 @@ export const ReportPreview = ({ content, compact = false }) => {
 
       {sections.kpiWarna !== false && (
         <div>
-          <h4 className="text-base font-semibold text-slate-900">KPI merah & kuning</h4>
+          <h4 className="text-sm font-semibold">KPI merah dan kuning</h4>
           {(content.issues || []).length === 0 ? (
             <p className="mt-2 text-sm text-slate-500">Tidak ada KPI di bawah target.</p>
           ) : (
@@ -119,7 +124,7 @@ export const ReportPreview = ({ content, compact = false }) => {
 
       {sections.actionPlan !== false && (
         <div>
-          <h4 className="text-base font-semibold text-slate-900">Action plan</h4>
+          <h4 className="text-sm font-semibold">Action plan</h4>
           {(content.plans || []).length === 0 ? (
             <p className="mt-2 text-sm text-slate-500">Belum ada action plan.</p>
           ) : (
@@ -139,7 +144,7 @@ export const ReportPreview = ({ content, compact = false }) => {
         </div>
       )}
 
-      <div className="space-y-1.5 border-t border-slate-100 pt-5 text-sm text-slate-800">
+      <div className="inset-panel space-y-1.5 text-sm text-slate-800">
         <p>
           <strong className="font-semibold">Masalah utama:</strong> {mainIssueText(content)}
         </p>

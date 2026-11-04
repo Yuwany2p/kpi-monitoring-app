@@ -17,6 +17,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DELETE FROM auth.users WHERE email LIKE '%@perusahaan.co.id';
 DELETE FROM public.periods;
 DELETE FROM public.kpi_indicators;
+DELETE FROM public.goal_categories;
 DELETE FROM public.teams;
 
 -- --------------------------------------------------------------------
@@ -77,10 +78,15 @@ INSERT INTO public.periods (id, name, start_date, end_date, status) VALUES
 -- --------------------------------------------------------------------
 -- 4. Indikator KPI
 -- --------------------------------------------------------------------
-INSERT INTO public.kpi_indicators (id, code, name, unit, direction, weight, frequency, data_source, created_by) VALUES
-  ('d0000000-0000-0000-0000-000000000001', 'KPI-01', 'Tiket Terselesaikan',     'tiket', 'higher_better', 40, 'Bulanan', 'Sistem tiket',     'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-  ('d0000000-0000-0000-0000-000000000002', 'KPI-02', 'Waktu Respons Rata-rata', 'menit', 'lower_better',  30, 'Bulanan', 'Log sistem',       'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-  ('d0000000-0000-0000-0000-000000000003', 'KPI-03', 'Kepuasan Pelanggan',      '%',     'higher_better', 30, 'Bulanan', 'Survei pelanggan', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+INSERT INTO public.goal_categories (id, name, priority, weight, description) VALUES
+  ('e1000000-0000-0000-0000-000000000001', 'Kualitas layanan',        'utama',   50, 'Kecepatan dan kepuasan layanan ke pelanggan'),
+  ('e1000000-0000-0000-0000-000000000002', 'Produktivitas tim',       'penting', 30, 'Volume pekerjaan yang diselesaikan tim'),
+  ('e1000000-0000-0000-0000-000000000003', 'Pengembangan kompetensi', 'rutin',   20, 'Pelatihan dan peningkatan keterampilan staf');
+
+INSERT INTO public.kpi_indicators (id, code, name, unit, direction, weight, frequency, data_source, perspective, category_id, created_by) VALUES
+  ('d0000000-0000-0000-0000-000000000001', 'KPI-01', 'Tiket Terselesaikan',     'tiket', 'higher_better', 40, 'Bulanan', 'Sistem tiket',     'proses_internal', 'e1000000-0000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('d0000000-0000-0000-0000-000000000002', 'KPI-02', 'Waktu Respons Rata-rata', 'menit', 'lower_better',  30, 'Bulanan', 'Log sistem',       'pelanggan',       'e1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+  ('d0000000-0000-0000-0000-000000000003', 'KPI-03', 'Kepuasan Pelanggan',      '%',     'higher_better', 30, 'Bulanan', 'Survei pelanggan', 'pelanggan',       'e1000000-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
 
 -- --------------------------------------------------------------------
 -- 5. Target: semua staf x 3 indikator x 6 periode

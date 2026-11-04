@@ -15,9 +15,25 @@ export const ROLE_LABELS = {
 export const DEMO_ACCOUNTS = [
   { email: 'hendra@perusahaan.co.id', label: 'Supervisor', name: 'Hendra Wijaya' },
   { email: 'dewi@perusahaan.co.id', label: 'Staf', name: 'Dewi Lestari' },
+  { email: 'rina@perusahaan.co.id', label: 'Staf', name: 'Rina Marlina' },
   { email: 'maya@perusahaan.co.id', label: 'Manajemen', name: 'Maya Anggraini' },
 ];
 export const DEMO_PASSWORD = 'password123';
+
+// Empat perspektif penilaian KPI (pola balanced scorecard yang dipakai AMS)
+export const PERSPECTIVES = {
+  keuangan: { label: 'Keuangan', short: 'Keuangan' },
+  pelanggan: { label: 'Pelanggan', short: 'Pelanggan' },
+  proses_internal: { label: 'Proses bisnis internal', short: 'Proses internal' },
+  pembelajaran: { label: 'Pembelajaran & pertumbuhan', short: 'Pembelajaran' },
+};
+
+// Kategori sasaran: tingkat prioritas
+export const GOAL_PRIORITIES = {
+  utama: { label: 'Prioritas utama', rank: 1 },
+  penting: { label: 'Penting', rank: 2 },
+  rutin: { label: 'Rutin', rank: 3 },
+};
 
 export const KPI_DIRECTIONS = {
   HIGHER_BETTER: 'higher_better',
@@ -86,3 +102,7 @@ export const REVIEW_DECISIONS = {
   revision: 'Minta revisi laporan',
   special_action: 'Tindak lanjut khusus (sumber daya / revisi target)',
 };
+
+// Event untuk memuat ulang badge jumlah di sidebar setelah validasi/review
+export const BADGE_REFRESH_EVENT = 'kpi:badge-refresh';
+export const refreshSidebarBadges = () => window.dispatchEvent(new Event(BADGE_REFRESH_EVENT));

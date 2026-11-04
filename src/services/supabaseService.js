@@ -60,6 +60,38 @@ export const getTeamMembers = async (teamId) => {
 };
 
 // --------------------------------------------------------------------
+// Karyawan & departemen (halaman Karyawan & departemen)
+// Akun baru dibuat lewat Supabase Auth; profil dibuat otomatis oleh trigger.
+// --------------------------------------------------------------------
+const EMPLOYEE_SELECT = 'id, full_name, email, role, team_id, is_active, created_at, teams:team_id (id, name)';
+
+export const getEmployees = async () =>
+  unwrap(await supabase.from('profiles').select(EMPLOYEE_SELECT).order('full_name'));
+
+export const updateEmployee = async (id, updates) =>
+  unwrap(await supabase.from('profiles').update(updates).eq('id', id).select(EMPLOYEE_SELECT).single());
+
+export const createTeam = async (team) =>
+  unwrap(await supabase.from('teams').insert([team]).select('id, name, supervisor_id').single());
+
+export const updateTeam = async (id, updates) =>
+  unwrap(await supabase.from('teams').update(updates).eq('id', id).select('id, name, supervisor_id').single());
+
+// --------------------------------------------------------------------
+// Kategori sasaran
+// --------------------------------------------------------------------
+export const getGoalCategories = async () =>
+  unwrap(await supabase.from('goal_categories').select('*').order('weight', { ascending: false }));
+
+export const createGoalCategory = async (category) =>
+  unwrap(await supabase.from('goal_categories').insert([category]).select().single());
+
+export const updateGoalCategory = async (id, updates) =>
+  unwrap(await supabase.from('goal_categories').update(updates).eq('id', id).select().single());
+
+export const deleteGoalCategory = async (id) => unwrap(await supabase.from('goal_categories').delete().eq('id', id));
+
+// --------------------------------------------------------------------
 // Master indikator KPI
 // --------------------------------------------------------------------
 export const getKpiIndicators = async ({ includeInactive = false } = {}) => {

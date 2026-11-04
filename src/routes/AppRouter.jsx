@@ -10,6 +10,7 @@ import { SetupRequiredPage } from '../pages/SetupRequiredPage';
 const named = (loader, name) => lazy(() => loader().then((m) => ({ default: m[name] })));
 const Dashboard = named(() => import('../pages/Dashboard'), 'Dashboard');
 const MasterKpiPage = named(() => import('../pages/MasterKpiPage'), 'MasterKpiPage');
+const MasterKaryawanPage = named(() => import('../pages/MasterKaryawanPage'), 'MasterKaryawanPage');
 const ValidasiDataPage = named(() => import('../pages/ValidasiDataPage'), 'ValidasiDataPage');
 const AnalisisTindakLanjutPage = named(() => import('../pages/AnalisisTindakLanjutPage'), 'AnalisisTindakLanjutPage');
 const LaporanKpiPage = named(() => import('../pages/LaporanKpiPage'), 'LaporanKpiPage');
@@ -38,7 +39,7 @@ const RequireAuth = ({ children }) => {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas p-6">
         <div className="card max-w-md space-y-3 p-6">
-          <h1 className="text-lg font-semibold text-slate-900">Profil Anda tidak bisa dimuat</h1>
+          <h1 className="section-title">Profil Anda tidak bisa dimuat</h1>
           <p className="text-slate-600">{profileError}</p>
           <p className="text-slate-600">Pastikan akun Anda punya baris di tabel profiles, lalu masuk lagi.</p>
           <button onClick={logout} className="btn-primary">
@@ -90,6 +91,15 @@ export const AppRouter = () => {
           element={
             <RoleRoute roles={[SUPERVISOR, MANAJEMEN]}>
               <MasterKpiPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="karyawan"
+          element={
+            <RoleRoute roles={[SUPERVISOR, MANAJEMEN]}>
+              <MasterKaryawanPage />
             </RoleRoute>
           }
         />

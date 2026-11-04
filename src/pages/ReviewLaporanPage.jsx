@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileDown, Loader2 } from 'lucide-react';
+import { FileDown, Loader2, Inbox, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFilter } from '../context/FilterContext';
 import { useAsyncData } from '../hooks/useAsyncData';
@@ -12,19 +12,21 @@ import {
 } from '../services/supabaseService';
 import { buildReportContent, isContentEmpty } from '../lib/reportContent';
 import { exportReportPdf } from '../lib/reportExport';
-import { REPORT_STATUS, REVIEW_DECISIONS } from '../lib/constants';
+import { REPORT_STATUS, refreshSidebarBadges } from '../lib/constants';
 import { formatDateTime } from '../lib/formatters';
-import { Notice, LoadingBlock, EmptyBlock, StatusPill } from '../components/common/Notice';
+import { Notice, LoadingBlock, EmptyState, StatusPill, TableSkeleton } from '../components/common/Notice';
+import { Section } from '../components/common/Section';
+import { ReviewHistory } from '../components/laporan/ReviewHistory';
 import { ReportPreview } from '../components/laporan/ReportPreview';
 
 const DECISION_OPTIONS = [
-  { key: 'approved', label: 'Setujui laporan' },
-  { key: 'revision', label: 'Minta revisi laporan' },
-  { key: 'special_action', label: 'Tetapkan tindak lanjut khusus (sumber daya atau revisi target)' },
+  { key: 'approved', label: 'Setujui', hint: 'Laporan diterima apa adanya' },
+  { key: 'revision', label: 'Minta revisi', hint: 'Supervisor memperbaiki lalu mengirim ulang' },
+  { key: 'special_action', label: 'Tindak lanjut khusus', hint: 'Tambahan sumber daya atau revisi target' },
 ];
 
 const FEEDBACK_PLACEHOLDER = {
-  approved: 'Catatan untuk supervisor (opsional tapi disarankan)',
+  approved: 'Contoh: laporan jelas, pantau terus progres KPI yang masih merah.',
   revision: 'Bagian mana yang perlu diperbaiki?',
   special_action: 'Tindak lanjut apa yang ditetapkan? Misalnya tambahan staf atau target baru.',
 };
@@ -110,8 +112,11 @@ export const ReviewLaporanPage = () => {
         reviewerId: currentUser.id,
       });
       await reportsQuery.reload();
+      refreshSidebarBadges();
       setFeedback('');
       setMessage({ type: 'success', text: 'Keputusan terkirim ke supervisor.' });
+      // Form hilang setelah terkirim; bawa pengguna ke pesan konfirmasi di atas
+      window.scrollTo({ top: 0 });
     } catch (err) {
       setMessage({ type: 'error', text: `Keputusan belum terkirim: ${err.message}` });
     } finally {
@@ -121,23 +126,26 @@ export const ReviewLaporanPage = () => {
 
   const waiting = reports.filter((r) => r.status === 'submitted').length;
   const canReview = selectedReport?.status === 'submitted';
+  const selectedCfg = selectedReport ? REPORT_STATUS[selectedReport.status] : null;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      <section className="card p-6 lg:col-span-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="card-title">Laporan masuk</h2>
-          <span className="text-sm text-slate-500">{waiting} menunggu</span>
-        </div>
-
-        {reportsQuery.error && <Notice type="error" className="mt-4">{reportsQuery.error}</Notice>}
+      <Section
+        flush
+        className="lg:col-span-4 lg:self-start"
+        title="Laporan masuk"
+        description={waiting > 0 ? `${waiting} menunggu keputusan Anda` : 'Tidak ada yang menunggu keputusan'}
+      >
+        {reportsQuery.error && <Notice type="error" className="m-4 sm:m-5">{reportsQuery.error}</Notice>}
 
         {reportsQuery.loading ? (
-          <LoadingBlock text="Memuat laporan…" />
+          <TableSkeleton rows={3} cols={2} label="Memuat laporan…" />
         ) : reports.length === 0 ? (
-          <EmptyBlock>Belum ada laporan yang dikirim supervisor.</EmptyBlock>
+          <EmptyState icon={Inbox} title="Belum ada laporan">
+            Laporan muncul di sini setelah supervisor mengirimnya.
+          </EmptyState>
         ) : (
-          <ul className="mt-4 space-y-2">
+          <ul className="divide-y divide-slate-100">
             {reports.map((rep) => {
               const isSelected = selectedReport?.id === rep.id;
               const cfg = REPORT_STATUS[rep.status];
@@ -147,15 +155,17 @@ export const ReviewLaporanPage = () => {
                     type="button"
                     onClick={() => handleSelect(rep)}
                     aria-pressed={isSelected}
-                    className={`flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors cursor-pointer ${
-                      isSelected ? 'border-astra-600 bg-astra-50' : 'border-slate-200 hover:border-slate-300'
+                    className={`relative flex w-full cursor-pointer items-start justify-between gap-3 px-4 py-3 text-left transition-colors focus-visible:-outline-offset-2 sm:px-5 ${
+                      isSelected
+                        ? 'bg-astra-50 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-astra-600'
+                        : 'hover:bg-slate-50'
                     }`}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-900">
+                      <span className="block truncate text-sm font-medium text-slate-900">
                         {rep.author?.teams?.name || rep.title}
                       </span>
-                      <span className="block text-sm text-slate-500">
+                      <span className="block text-[13px] text-slate-500">
                         {rep.periods?.name}, {rep.author?.full_name}
                       </span>
                     </span>
@@ -166,87 +176,105 @@ export const ReviewLaporanPage = () => {
             })}
           </ul>
         )}
-      </section>
+      </Section>
 
       <div className="space-y-6 lg:col-span-8">
-        {message && <Notice type={message.type}>{message.text}</Notice>}
+        {message && (
+          <Notice type={message.type} onDismiss={() => setMessage(null)}>
+            {message.text}
+          </Notice>
+        )}
 
         {!selectedReport ? (
           !reportsQuery.loading && (
-            <div className="card p-12">
-              <EmptyBlock>Laporan yang dikirim supervisor akan muncul di sini.</EmptyBlock>
+            <div className="card">
+              <EmptyState icon={FileText} title="Tidak ada laporan untuk ditampilkan">
+                Pilih laporan di daftar setelah supervisor mengirimnya.
+              </EmptyState>
             </div>
           )
         ) : (
           <>
-            <section className="card p-6">
-              <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">
+            <section className="card" aria-labelledby="report-title">
+              <div className="card-header">
+                <div className="min-w-0">
+                  <h2 id="report-title" className="section-title">
                     {selectedReport.author?.teams?.name}, {selectedReport.periods?.name}
                   </h2>
-                  <p className="text-sm text-slate-500">
-                    Dikirim {selectedReport.author?.full_name} pada {formatDateTime(selectedReport.submitted_at)}
+                  <p className="section-desc">
+                    Dikirim {selectedReport.author?.full_name}, {formatDateTime(selectedReport.submitted_at)}
                   </p>
                 </div>
-                <button
-                  onClick={handleDownload}
-                  disabled={busy === 'pdf' || (!selectedReport.file_url && !content)}
-                  className="btn-secondary"
-                >
-                  {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                  Unduh PDF
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill className={selectedCfg?.badge}>{selectedCfg?.label}</StatusPill>
+                  {canReview && (
+                    <a href="#keputusan" className="btn-primary btn-sm">
+                      Beri keputusan
+                    </a>
+                  )}
+                  <button
+                    onClick={handleDownload}
+                    disabled={busy === 'pdf' || (!selectedReport.file_url && !content)}
+                    className="btn-secondary btn-sm"
+                  >
+                    {busy === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4" aria-hidden="true" />}
+                    Unduh PDF
+                  </button>
+                </div>
               </div>
 
-              {contentQuery.error && <Notice type="error">{contentQuery.error}</Notice>}
-              {contentQuery.loading || !content ? (
-                <LoadingBlock text="Memuat isi laporan…" />
-              ) : (
-                <ReportPreview content={content} compact />
-              )}
+              <div className="card-body">
+                {contentQuery.error && <Notice type="error">{contentQuery.error}</Notice>}
+                {contentQuery.loading || !content ? (
+                  <LoadingBlock text="Memuat isi laporan…" />
+                ) : (
+                  <ReportPreview content={content} compact />
+                )}
+              </div>
             </section>
 
             {selectedReport.report_reviews?.length > 0 && (
-              <section className="card p-6">
-                <h2 className="card-title">Keputusan sebelumnya</h2>
-                <ul className="mt-4 space-y-4">
-                  {selectedReport.report_reviews.map((rv) => (
-                    <li key={rv.id} className="border-l-2 border-astra-200 pl-4">
-                      <p className="text-sm font-semibold text-slate-900">{REVIEW_DECISIONS[rv.decision]}</p>
-                      <p className="mt-1 text-sm text-slate-700">{rv.feedback}</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {rv.reviewer?.full_name}, {formatDateTime(rv.reviewed_at)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <Section title="Keputusan sebelumnya">
+                <ReviewHistory reviews={selectedReport.report_reviews} />
+              </Section>
             )}
 
             {canReview && (
-              <section className="card p-6">
-                <h2 className="card-title">Feedback & keputusan manajemen</h2>
-                <form onSubmit={handleSubmitFeedback} className="mt-4 space-y-5">
-                  <fieldset className="space-y-2.5">
-                    <legend className="sr-only">Keputusan</legend>
-                    {DECISION_OPTIONS.map((opt) => (
-                      <label key={opt.key} className="flex items-center gap-3 text-sm text-slate-800 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="decision"
-                          value={opt.key}
-                          checked={decision === opt.key}
-                          onChange={() => setDecision(opt.key)}
-                          className="h-4 w-4 border-slate-300 text-astra-600"
-                        />
-                        {opt.label}
-                      </label>
-                    ))}
+              <Section
+                id="keputusan"
+                title="Keputusan manajemen"
+                description="Keputusan dan feedback langsung terlihat oleh supervisor pengirim"
+              >
+                <form onSubmit={handleSubmitFeedback} className="space-y-5">
+                  <fieldset>
+                    <legend className="label">Keputusan</legend>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {DECISION_OPTIONS.map((opt) => (
+                        <label
+                          key={opt.key}
+                          className="flex cursor-pointer items-start gap-2.5 rounded-md border border-slate-200 p-3 text-sm text-slate-800 has-[:checked]:border-astra-600 has-[:checked]:bg-astra-50"
+                        >
+                          <input
+                            type="radio"
+                            name="decision"
+                            value={opt.key}
+                            checked={decision === opt.key}
+                            onChange={() => setDecision(opt.key)}
+                            className="mt-0.5 h-4 w-4 border-control text-astra-600 focus:ring-astra-600"
+                          />
+                          <span>
+                            <span className="block font-medium">{opt.label}</span>
+                            <span className="block text-[13px] text-slate-500">{opt.hint}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </fieldset>
 
                   <div>
-                    <label htmlFor="feedback" className="label">Feedback untuk supervisor</label>
+                    <label htmlFor="feedback" className="label">
+                      Feedback untuk supervisor
+                    </label>
                     <textarea
                       id="feedback"
                       rows={4}
@@ -260,12 +288,12 @@ export const ReviewLaporanPage = () => {
 
                   <div className="flex justify-end">
                     <button type="submit" disabled={busy === 'review' || !feedback.trim()} className="btn-primary">
-                      {busy === 'review' && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {busy === 'review' && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                       Kirim keputusan
                     </button>
                   </div>
                 </form>
-              </section>
+              </Section>
             )}
           </>
         )}

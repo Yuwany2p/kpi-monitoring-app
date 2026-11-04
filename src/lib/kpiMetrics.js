@@ -141,11 +141,25 @@ export const shortPeriodLabel = (period) => {
   return new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(new Date(period.start_date));
 };
 
-/** Domain sumbu Y yang nyaman dibaca untuk grafik capaian (%). */
+/**
+ * Skala sumbu Y grafik capaian (%) dengan langkah bulat.
+ * Garis target 100% selalu masuk rentang. Langkah 10 untuk rentang
+ * sempit, 20 untuk rentang lebar, supaya tick tidak jatuh di 96% atau 104%.
+ * Mengembalikan { domain: [min, max], ticks: [...] }.
+ */
 export const chartDomain = (points, key = 'score') => {
-  const values = points.map((p) => p[key]).filter((v) => v !== null && v !== undefined);
-  if (!values.length) return [0, 120];
-  const min = Math.min(...values, 100);
-  const max = Math.max(...values, 100);
-  return [Math.max(0, Math.floor((min - 10) / 10) * 10), Math.ceil((max + 5) / 10) * 10];
+  // null/undefined = periode tanpa data; jangan dihitung sebagai 0
+  const values = points
+    .map((p) => p[key])
+    .filter((v) => v !== null && v !== undefined && v !== '')
+    .map(Number)
+    .filter((v) => Number.isFinite(v));
+  const lo = Math.min(...values, 100);
+  const hi = Math.max(...values, 100);
+  const step = hi - lo + 10 > 60 ? 20 : 10;
+  const min = Math.max(0, Math.floor((lo - step / 2) / step) * step);
+  const max = Math.ceil((hi + step / 2) / step) * step;
+  const ticks = [];
+  for (let t = min; t <= max; t += step) ticks.push(t);
+  return { domain: [min, max], ticks };
 };

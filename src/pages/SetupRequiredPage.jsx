@@ -6,7 +6,7 @@ const Code = ({ children }) => <code className="rounded bg-slate-100 px-1.5 py-0
 export const SetupRequiredPage = () => (
   <div className="flex min-h-screen items-center justify-center bg-canvas p-6">
     <div className="card w-full max-w-lg p-8">
-      <h1 className="text-xl font-bold text-slate-900">Supabase belum dikonfigurasi</h1>
+      <h1 className="text-xl font-semibold">Supabase belum dikonfigurasi</h1>
       <p className="mt-2 text-slate-600">Aplikasi butuh koneksi ke database Supabase sebelum bisa dipakai.</p>
       <ol className="mt-5 list-decimal space-y-2.5 pl-5 text-slate-700">
         <li>
