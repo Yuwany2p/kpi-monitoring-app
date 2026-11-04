@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title th:text="'Detail Aktivitas: ' + ${activity.namaAktivitasKpi} + ' - Sistem KPI Prodi/UPT'">Detail Aktivitas</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="mb-4">
+            <a th:href="@{'/kpi/detail/' + ${activity.kpi.idKpi}}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-2">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Detail KPI (<span th:text="${activity.kpi.namaKpi}">KPI</span>)
+            </a>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <code class="fw-bold fs-6" th:text="${activity.idDetailKpi}">DKP0000001</code>
+                        <span th:if="${activity.status.name() == 'OPEN'}" class="badge bg-secondary">OPEN</span>
+                        <span th:if="${activity.status.name() == 'PICKED'}" class="badge bg-primary">PICKED</span>
+                        <span th:if="${activity.status.name() == 'SUBMITTED'}" class="badge bg-warning text-dark">SUBMITTED</span>
+                        <span th:if="${activity.status.name() == 'REVISION'}" class="badge bg-danger">REVISION</span>
+                        <span th:if="${activity.status.name() == 'APPROVED_L1'}" class="badge bg-info text-dark">APPROVED L1</span>
+                        <span th:if="${activity.status.name() == 'DONE'}" class="badge bg-success">DONE</span>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-0" th:text="${activity.namaAktivitasKpi}">Nama Aktivitas</h3>
+                </div>
+
+                <div class="d-flex gap-2" th:if="${isOwnerPic && (activity.status.name() == 'PICKED' || activity.status.name() == 'REVISION')}">
+                    <a th:href="@{'/progress/upload/' + ${activity.idDetailKpi}}" class="btn btn-navy d-flex align-items-center gap-2">
+                        <i class="bi bi-cloud-arrow-up-fill"></i>
+                        <span>Unggah Progres / Revisi</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metric Badges Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3">
+                    <span class="text-muted small fw-semibold text-uppercase">Bobot Aktivitas</span>
+                    <h4 class="fw-bold text-primary mt-1 mb-0" th:text="${activity.persentaseBobot} + '%'">0%</h4>
+                    <div class="small text-muted mt-1">Kontribusi terhadap KPI</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3">
+                    <span class="text-muted small fw-semibold text-uppercase">Capaian Progres</span>
+                    <h4 class="fw-bold text-success mt-1 mb-0" th:text="${activity.persentaseProgres} + '%'">0%</h4>
+                    <div class="small text-muted mt-1">Dihitung saat DONE</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3">
+                    <span class="text-muted small fw-semibold text-uppercase">Batas Waktu (Deadline)</span>
+                    <h5 class="fw-bold text-dark mt-1 mb-0" th:text="${#temporals.format(activity.deadline, 'dd MMMM yyyy')}">Deadline</h5>
+                    <div class="small text-muted mt-1">Target PIC</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3">
+                    <span class="text-muted small fw-semibold text-uppercase">PIC Pelaksana</span>
+                    <h5 class="fw-bold text-dark mt-1 mb-0" th:text="${activity.pic != null ? activity.pic.namaKaryawan : 'Belum Diambil'}">PIC</h5>
+                    <div class="small text-muted mt-1" th:text="${activity.pic != null ? activity.pic.bagian : '-'}">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left: Riwayat Upload Berkas Bukti -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold text-navy mb-0"><i class="bi bi-file-earmark-arrow-up-fill me-2 text-primary"></i> Riwayat Unggahan Progres</h5>
+                        <span class="badge bg-light text-dark border" th:text="${uploadHistory.size()} + ' Unggahan'">0</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div th:if="${uploadHistory.isEmpty()}" class="text-center py-4 text-muted small">
+                            Belum ada riwayat unggahan progres untuk aktivitas ini.
+                        </div>
+                        <div class="list-group list-group-flush" th:if="${!uploadHistory.isEmpty()}">
+                            <div th:each="u : ${uploadHistory}" class="list-group-item px-0 py-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="badge bg-primary me-1" th:text="'Progres: ' + ${u.persentaseProgres} + '%'">0%</span>
+                                        <code class="small" th:text="${u.idUpload}">UPL0000001</code>
+                                    </div>
+                                    <small class="text-muted" th:text="${#temporals.format(u.tanggalUpload, 'dd MMM yyyy, HH:mm')}">Tanggal</small>
+                                </div>
+                                <p class="text-dark small mb-2" th:text="${u.catatan != null && !u.catatan.isEmpty() ? u.catatan : 'Tidak ada catatan.'}">Catatan progres</p>
+                                <div class="d-flex align-items-center justify-content-between bg-light p-2 rounded-2 border">
+                                    <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 75%;">
+                                        <i class="bi bi-paperclip fs-5 text-secondary"></i>
+                                        <span class="small fw-semibold text-truncate" th:text="${u.namaFile}">bukti.pdf</span>
+                                    </div>
+                                    <a th:href="@{'/files/download/' + ${u.idUpload}}" class="btn btn-sm btn-outline-primary py-1 px-2" title="Unduh Berkas">
+                                        <i class="bi bi-download me-1"></i> Unduh
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Log Persetujuan (Approval Log) -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold text-navy mb-0"><i class="bi bi-journal-text me-2 text-primary"></i> Catatan Riwayat Approval</h5>
+                        <span class="badge bg-light text-dark border" th:text="${approvalLogs.size()} + ' Riwayat'">0</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div th:if="${approvalLogs.isEmpty()}" class="text-center py-4 text-muted small">
+                            Belum ada catatan persetujuan untuk aktivitas ini.
+                        </div>
+                        <ul class="timeline list-unstyled mb-0" th:if="${!approvalLogs.isEmpty()}">
+                            <li th:each="log : ${approvalLogs}" class="mb-3 pb-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <div>
+                                        <span th:if="${log.aksi.name() == 'APPROVE'}" class="badge bg-success me-1">
+                                            <i class="bi bi-check-lg"></i> DISETUJUI (<span th:text="${log.level}">L1</span>)
+                                        </span>
+                                        <span th:if="${log.aksi.name() == 'REJECT'}" class="badge bg-danger me-1">
+                                            <i class="bi bi-x-lg"></i> DITOLAK REVISI (<span th:text="${log.level}">L1</span>)
+                                        </span>
+                                        <strong class="small text-dark" th:text="${log.karyawan.namaKaryawan}">Reviewer</strong>
+                                    </div>
+                                    <small class="text-muted" th:text="${#temporals.format(log.tanggal, 'dd MMM yyyy, HH:mm')}">Tanggal</small>
+                                </div>
+                                <div class="bg-light p-2 rounded-2 mt-2 text-dark small">
+                                    <span class="fw-semibold text-muted d-block small">Catatan Review:</span>
+                                    <span th:text="${log.catatan != null && !log.catatan.isEmpty() ? log.catatan : '-'}">Catatan</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

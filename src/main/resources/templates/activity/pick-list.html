@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title>Katalog Pengambilan Aktivitas - Sistem KPI Prodi/UPT</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="mb-4">
+            <h3 class="fw-bold text-dark mb-1">Katalog Pengambilan Aktivitas (Pick Activity)</h3>
+            <p class="text-muted mb-0">Daftar seluruh aktivitas yang berstatus <strong>OPEN</strong> dan siap diambil oleh PIC pelaksana.</p>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3 p-md-4">
+                <table class="table table-hover custom-table align-middle"
+                       data-toggle="table"
+                       data-search="true"
+                       data-pagination="true"
+                       data-page-size="10"
+                       data-search-align="left">
+                    <thead>
+                        <tr>
+                            <th data-field="id" data-sortable="true">ID Aktivitas</th>
+                            <th data-field="kpi" data-sortable="true">KPI Induk</th>
+                            <th data-field="nama" data-sortable="true">Nama Aktivitas</th>
+                            <th data-field="bobot" data-sortable="true">Bobot</th>
+                            <th data-field="deadline" data-sortable="true">Batas Waktu</th>
+                            <th data-field="pembuat">Penanggung Jawab</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${openActivities.isEmpty()}">
+                            <td colspan="7" class="text-center py-4 text-muted">Saat ini tidak ada aktivitas yang berstatus OPEN.</td>
+                        </tr>
+                        <tr th:each="a : ${openActivities}">
+                            <td><code class="fw-bold" th:text="${a.idDetailKpi}">DKP0000001</code></td>
+                            <td>
+                                <a th:href="@{'/kpi/detail/' + ${a.kpi.idKpi}}" class="text-dark fw-semibold text-decoration-none" th:text="${a.kpi.namaKpi}">Nama KPI</a>
+                                <div class="small text-muted" th:text="${a.kpi.periode}">2026</div>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark" th:text="${a.namaAktivitasKpi}">Nama Aktivitas</div>
+                            </td>
+                            <td class="fw-bold text-primary" th:text="${a.persentaseBobot} + '%'">0%</td>
+                            <td>
+                                <span class="badge bg-light text-dark border" th:text="${#temporals.format(a.deadline, 'dd MMM yyyy')}">31 Des 2026</span>
+                            </td>
+                            <td>
+                                <div class="small fw-semibold" th:text="${a.dibuatOleh.namaKaryawan}">Nama PJ</div>
+                                <div class="small text-muted" th:text="${a.dibuatOleh.role}">SEKPROD</div>
+                            </td>
+                            <td class="text-end">
+                                <form th:action="@{'/activity/pick/' + ${a.idDetailKpi}}" method="POST" class="d-inline">
+                                    <button type="button" class="btn btn-navy btn-sm btn-confirm-pick"
+                                            th:data-name="${a.namaAktivitasKpi}">
+                                        <i class="bi bi-hand-index-thumb me-1"></i> Ambil Aktivitas
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

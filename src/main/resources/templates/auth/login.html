@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistem Manajemen KPI Prodi/UPT</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" th:href="@{/assets/images/favicon.ico}">
+
+    <!-- Stylesheets (Navy Blue Theme) -->
+    <link rel="stylesheet" th:href="@{/assets/libs/bootstrap/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/assets/libs/bootstrap-icons/bootstrap-icons.css}">
+    <link rel="stylesheet" th:href="@{/assets/css/main.css}">
+
+    <style>
+        .login-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 50%, #0F172A 100%);
+            position: relative;
+            padding: 2rem 1rem;
+        }
+        .login-card {
+            background: #ffffff;
+            border-radius: 1.25rem;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            z-index: 10;
+        }
+        .login-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            color: #0A192F;
+            font-weight: 800;
+            font-size: 1.4rem;
+        }
+        .login-subtitle {
+            color: #64748B;
+            font-size: 0.9rem;
+            margin-bottom: 1.75rem;
+        }
+        .btn-navy-login {
+            background-color: #1E3A8A;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 0.85rem;
+            border-radius: 0.65rem;
+            border: none;
+            width: 100%;
+            transition: all 0.25s ease;
+        }
+        .btn-navy-login:hover {
+            background-color: #0A192F;
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(30, 58, 138, 0.35);
+        }
+        .credential-box {
+            background: #F8FAFC;
+            border: 1px dashed #CBD5E1;
+            border-radius: 0.75rem;
+            padding: 0.85rem;
+            font-size: 0.8rem;
+            color: #334155;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-wrapper">
+        <div class="login-card">
+            <!-- Brand -->
+            <div class="login-brand">
+                <i class="bi bi-speedometer2 text-primary fs-3"></i>
+                <span>Sistem KPI Prodi/UPT</span>
+            </div>
+            <p class="login-subtitle">Masuk untuk mengelola dan memantau capaian kinerja</p>
+
+            <!-- Alerts -->
+            <div th:if="${errorMessage}" class="alert alert-danger py-2 small d-flex align-items-center mb-3">
+                <i class="bi bi-exclamation-circle-fill me-2 fs-6"></i>
+                <span th:text="${errorMessage}">Pesan error</span>
+            </div>
+            <div th:if="${successMessage}" class="alert alert-success py-2 small d-flex align-items-center mb-3">
+                <i class="bi bi-check-circle-fill me-2 fs-6"></i>
+                <span th:text="${successMessage}">Pesan sukses</span>
+            </div>
+
+            <!-- Form -->
+            <form th:action="@{/login}" method="POST" id="loginForm">
+                <!-- Username / NPK -->
+                <div class="mb-3">
+                    <label for="username" class="form-label fw-semibold small text-muted">Username atau NPK</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-secondary"></i></span>
+                        <input type="text" id="username" name="username" class="form-control border-start-0 ps-0" placeholder="Masukkan username atau NPK" required autofocus>
+                    </div>
+                </div>
+
+                <!-- Password -->
+                <div class="mb-4">
+                    <label for="password" class="form-label fw-semibold small text-muted">Kata Sandi (Password)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-shield-lock text-secondary"></i></span>
+                        <input type="password" id="password" name="password" class="form-control border-start-0 border-end-0 ps-0" placeholder="••••••••" required>
+                        <button class="btn btn-outline-light border text-secondary" type="button" id="togglePassword">
+                            <i class="bi bi-eye" id="toggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn-navy-login d-flex align-items-center justify-content-center gap-2">
+                    <span>Masuk ke Dashboard</span>
+                    <i class="bi bi-arrow-right"></i>
+                </button>
+            </form>
+
+            <!-- Demo Credential Helper -->
+            <div class="credential-box">
+                <div class="fw-bold mb-1"><i class="bi bi-info-circle me-1 text-primary"></i> Akun Uji Coba (Password: password123):</div>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                    <span class="badge bg-light text-dark border">KAPROD: <code>kaprod</code></span>
+                    <span class="badge bg-light text-dark border">SEKPROD: <code>sekprod</code></span>
+                    <span class="badge bg-light text-dark border">KAUPT: <code>kaupt</code></span>
+                    <span class="badge bg-light text-dark border">PIC: <code>pic</code></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script for toggle password -->
+    <script>
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const passwordInput = document.getElementById('password');
+            const icon = document.getElementById('toggleIcon');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
+            }
+        });
+    </script>
+</body>
+</html>
+

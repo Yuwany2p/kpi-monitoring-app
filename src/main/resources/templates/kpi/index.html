@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title>Daftar Header KPI - Sistem KPI Prodi/UPT</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">Header KPI (Key Performance Indicator)</h3>
+                <p class="text-muted mb-0">Sasaran target strategis program studi dan unit pelaksana teknis.</p>
+            </div>
+            <div sec:authorize="hasRole('KAPROD')">
+                <a th:href="@{/kpi/create}" class="btn btn-navy d-flex align-items-center gap-2">
+                    <i class="bi bi-plus-circle-fill"></i>
+                    <span>Buat Header KPI Baru</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3 p-md-4">
+                <table class="table table-hover custom-table align-middle"
+                       data-toggle="table"
+                       data-search="true"
+                       data-pagination="true"
+                       data-page-size="10"
+                       data-search-align="left"
+                       data-buttons-align="right">
+                    <thead>
+                        <tr>
+                            <th data-field="id" data-sortable="true">ID KPI</th>
+                            <th data-field="nama" data-sortable="true">Nama KPI</th>
+                            <th data-field="level" data-sortable="true">Level / Kat</th>
+                            <th data-field="periode" data-sortable="true">Periode</th>
+                            <th data-field="pj">Penanggung Jawab</th>
+                            <th data-field="bobot" data-sortable="true">Bobot KPI</th>
+                            <th data-field="progres" data-sortable="true" style="min-width: 170px;">Progres</th>
+                            <th data-field="status" data-sortable="true">Status</th>
+                            <th class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="k : ${kpis}">
+                            <td><code class="fw-bold" th:text="${k.idKpi}">KPI0000001</code></td>
+                            <td>
+                                <a th:href="@{'/kpi/detail/' + ${k.idKpi}}" class="fw-bold text-dark text-decoration-none" th:text="${k.namaKpi}">Nama KPI</a>
+                                <div class="small text-muted" th:text="'Dibuat oleh: ' + ${k.dibuatOleh.namaKaryawan}">Pembuat</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border" th:text="${k.level}">Prodi</span>
+                                <div class="small text-muted mt-1" th:text="${k.kategori}">Akademik</div>
+                            </td>
+                            <td class="small fw-semibold" th:text="${k.periode}">2026</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <span th:each="pj : ${k.penanggungJawabList}" class="badge bg-primary-subtle text-primary border border-primary-subtle"
+                                          th:text="${pj.namaKaryawan}">PJ</span>
+                                    <span th:if="${k.penanggungJawabList.isEmpty()}" class="text-muted small">- Belum ada PJ -</span>
+                                </div>
+                            </td>
+                            <td class="fw-bold" th:text="${k.persentaseBobot} + '%'">100%</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1 progress-compact">
+                                        <div class="progress-bar" role="progressbar"
+                                             th:style="'width: ' + ${k.persentaseProgres} + '%; background-color: ' + (${k.persentaseProgres >= 80 ? '#22C55E' : (k.persentaseProgres >= 50 ? '#F59E0B' : '#EF4444')})"
+                                             th:aria-valuenow="${k.persentaseProgres}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <span class="small fw-bold" th:text="${k.persentaseProgres} + '%'">0%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span th:if="${k.status.name() == 'DRAFT'}" class="badge bg-secondary">DRAFT</span>
+                                <span th:if="${k.status.name() == 'PUBLISHED'}" class="badge bg-success">PUBLISHED</span>
+                                <span th:if="${k.status.name() == 'CLOSED'}" class="badge bg-dark">CLOSED</span>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <!-- View Detail -->
+                                    <a th:href="@{'/kpi/detail/' + ${k.idKpi}}" class="btn btn-outline-secondary" title="Buka Detail">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+
+                                    <!-- KAPROD Actions: Edit, Status, Delete -->
+                                    <th:block sec:authorize="hasRole('KAPROD')">
+                                        <a th:href="@{'/kpi/edit/' + ${k.idKpi}}" class="btn btn-outline-primary" title="Edit KPI">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+
+                                        <!-- Publish Trigger if Draft -->
+                                        <form th:if="${k.status.name() == 'DRAFT'}" th:action="@{'/kpi/status/' + ${k.idKpi}}" method="POST" class="d-inline">
+                                            <input type="hidden" name="status" value="PUBLISHED">
+                                            <button type="submit" class="btn btn-outline-success" title="Publikasikan ke SEKPROD/KAUPT">
+                                                <i class="bi bi-send-check"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Close Trigger if Published -->
+                                        <form th:if="${k.status.name() == 'PUBLISHED'}" th:action="@{'/kpi/status/' + ${k.idKpi}}" method="POST" class="d-inline">
+                                            <input type="hidden" name="status" value="CLOSED">
+                                            <button type="submit" class="btn btn-outline-dark" title="Tutup KPI (Closed)">
+                                                <i class="bi bi-archive"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Delete KPI -->
+                                        <form th:action="@{'/kpi/delete/' + ${k.idKpi}}" method="POST" class="d-inline">
+                                            <button type="button" class="btn btn-outline-danger btn-confirm-delete"
+                                                    data-title="Hapus Header KPI?"
+                                                    th:data-text="'Hapus KPI ' + ${k.namaKpi} + '?'">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </th:block>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

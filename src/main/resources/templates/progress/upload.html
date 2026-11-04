@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title th:text="'Unggah Progres: ' + ${activity.namaAktivitasKpi} + ' - Sistem KPI Prodi/UPT'">Unggah Progres</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="mb-4">
+            <a th:href="@{/activity/my-activities}" class="text-decoration-none text-muted small d-inline-flex align-items-center mb-2">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Aktivitas Saya
+            </a>
+            <h3 class="fw-bold text-dark mb-1">Unggah Progres & Bukti Capaian</h3>
+            <p class="text-muted mb-0">Laporkan persentase penyelesaian dan unggah dokumen bukti dukung.</p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <!-- Activity Info Banner -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="badge bg-light text-dark border"><code th:text="${activity.idDetailKpi}">DKP0000001</code></span>
+                            <span class="badge bg-primary" th:text="${activity.status}">STATUS</span>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-1" th:text="${activity.namaAktivitasKpi}">Nama Aktivitas</h5>
+                        <div class="small text-muted">
+                            KPI: <strong th:text="${activity.kpi.namaKpi}">KPI</strong> |
+                            Bobot: <strong class="text-primary" th:text="${activity.persentaseBobot} + '%'">0%</strong> |
+                            Batas Waktu: <strong th:text="${#temporals.format(activity.deadline, 'dd MMM yyyy')}">Deadline</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Card -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <form th:action="@{'/progress/upload/' + ${activity.idDetailKpi}}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                            <div class="row g-3">
+                                <!-- Persentase Progres -->
+                                <div class="col-md-6">
+                                    <label for="persentaseProgres" class="form-label fw-semibold">Persentase Progres (%) <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="number" id="persentaseProgres" name="persentaseProgres" class="form-control"
+                                               min="0" max="100" step="0.01" placeholder="Contoh: 100.00" required>
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <div class="form-text small">Masukkan capaian riil (0 hingga 100%).</div>
+                                </div>
+
+                                <!-- File Upload -->
+                                <div class="col-md-6">
+                                    <label for="file" class="form-label fw-semibold">Berkas Bukti Dukung <span class="text-danger">*</span></label>
+                                    <input type="file" id="file" name="file" class="form-control"
+                                           accept=".pdf,.docx,.xlsx,.png,.jpg,.jpeg" required>
+                                    <div class="form-text small text-muted">Format: PDF, DOCX, XLSX, PNG, JPG (Maks. 5 MB).</div>
+                                </div>
+
+                                <!-- Catatan Progres -->
+                                <div class="col-12">
+                                    <label for="catatan" class="form-label fw-semibold">Catatan Keterangan Progres</label>
+                                    <textarea id="catatan" name="catatan" class="form-control" rows="4"
+                                              placeholder="Jelaskan rincian pekerjaan yang telah diselesaikan atau perbaikan yang dilakukan..."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                                <a th:href="@{/activity/my-activities}" class="btn btn-light px-4">Batal</a>
+                                <button type="submit" class="btn btn-navy px-4" id="btnSubmitUpload">
+                                    <i class="bi bi-cloud-arrow-up me-1"></i> Kirim Laporan Progres
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Upload History Overview -->
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h6 class="fw-bold text-navy mb-0"><i class="bi bi-clock-history me-2 text-primary"></i> Unggahan Sebelumnya</h6>
+                    </div>
+                    <div class="card-body p-3">
+                        <div th:if="${uploadHistory == null || uploadHistory.isEmpty()}" class="text-muted text-center py-4 small">
+                            Belum ada unggahan sebelumnya.
+                        </div>
+                        <div class="list-group list-group-flush" th:if="${uploadHistory != null && !uploadHistory.isEmpty()}">
+                            <div th:each="u : ${uploadHistory}" class="list-group-item px-0 py-2 border-bottom">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge bg-primary" th:text="${u.persentaseProgres} + '%'">100%</span>
+                                    <small class="text-muted" th:text="${#temporals.format(u.tanggalUpload, 'dd MMM, HH:mm')}">Date</small>
+                                </div>
+                                <div class="small text-truncate fw-semibold text-dark" th:text="${u.namaFile}">file.pdf</div>
+                                <div class="small text-muted text-truncate" th:text="${u.catatan}">Catatan</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle != null ? pageTitle + ' - Sistem KPI Prodi/UPT' : 'Sistem KPI Prodi/UPT'}">Sistem KPI Prodi/UPT</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" th:href="@{/assets/images/favicon.ico}">
+
+    <!-- Core Spark & Bootstrap 5 Styles (Navy Blue Theme) -->
+    <link rel="stylesheet" th:href="@{/assets/libs/bootstrap/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/assets/libs/bootstrap-icons/bootstrap-icons.css}">
+    <link rel="stylesheet" th:href="@{/assets/libs/flatpickr/flatpickr.min.css}">
+    <link rel="stylesheet" th:href="@{/assets/css/main.css}">
+
+    <!-- Bootstrap Table & SweetAlert2 (CDN with graceful fallback) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.6/dist/bootstrap-table.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+    <style>
+        /* Custom Navy Polish */
+        .sidebar-brand span {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+        }
+        .badge-role {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        .table thead th {
+            background-color: #0A192F !important;
+            color: #ffffff !important;
+            font-weight: 600;
+            border: none;
+        }
+        .bootstrap-table .fixed-table-container {
+            border-radius: 0.75rem;
+            overflow: hidden;
+            border: 1px solid #E2E8F0;
+        }
+        .btn-navy {
+            background-color: #1E3A8A;
+            color: #ffffff;
+            border: none;
+        }
+        .btn-navy:hover {
+            background-color: #0A192F;
+            color: #ffffff;
+        }
+        .progress-compact {
+            height: 10px;
+            border-radius: 6px;
+            background-color: #E2E8F0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==========================================
+         SIDEBAR NAVIGATION
+         ========================================== -->
+    <div class="sidebar-wrapper" id="sidebar">
+        <!-- Brand -->
+        <a th:href="@{/dashboard}" class="sidebar-brand text-decoration-none">
+            <i class="bi bi-speedometer2 text-info fs-4"></i>
+            <span>KPI Prodi/UPT</span>
+        </a>
+
+        <!-- Menu -->
+        <div class="flex-grow-1 overflow-y-auto">
+            <!-- Nav Section: Utilitas Utama -->
+            <div class="sidebar-menu-section">
+                <div class="sidebar-menu-title">Menu Utama</div>
+                <ul class="sidebar-menu-list">
+                    <li class="sidebar-menu-item">
+                        <a th:href="@{/dashboard}" class="sidebar-menu-link" th:classappend="${activeMenu == 'dashboard' ? 'active' : ''}">
+                            <i class="bi bi-grid-1x2-fill"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Nav Section: Master Data (KAPROD) -->
+            <div class="sidebar-menu-section" sec:authorize="hasRole('KAPROD')">
+                <div class="sidebar-menu-title">Administrasi</div>
+                <ul class="sidebar-menu-list">
+                    <li class="sidebar-menu-item">
+                        <a th:href="@{/karyawan}" class="sidebar-menu-link" th:classappend="${activeMenu == 'karyawan' ? 'active' : ''}">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Data Karyawan</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Nav Section: Manajemen KPI -->
+            <div class="sidebar-menu-section">
+                <div class="sidebar-menu-title">Kinerja & Aktivitas</div>
+                <ul class="sidebar-menu-list">
+                    <li class="sidebar-menu-item">
+                        <a th:href="@{/kpi}" class="sidebar-menu-link" th:classappend="${activeMenu == 'kpi' ? 'active' : ''}">
+                            <i class="bi bi-award-fill"></i>
+                            <span>Header KPI</span>
+                        </a>
+                    </li>
+
+                    <!-- PIC: Ambil Aktivitas -->
+                    <li class="sidebar-menu-item" sec:authorize="hasRole('PIC_ACTIVITY')">
+                        <a th:href="@{/activity/pick-list}" class="sidebar-menu-link" th:classappend="${activeMenu == 'pick' ? 'active' : ''}">
+                            <i class="bi bi-hand-index-thumb-fill"></i>
+                            <span>Ambil Aktivitas</span>
+                        </a>
+                    </li>
+
+                    <!-- PIC: Aktivitas Saya -->
+                    <li class="sidebar-menu-item" sec:authorize="hasRole('PIC_ACTIVITY')">
+                        <a th:href="@{/activity/my-activities}" class="sidebar-menu-link" th:classappend="${activeMenu == 'my-activities' ? 'active' : ''}">
+                            <i class="bi bi-check2-circle"></i>
+                            <span>Aktivitas Saya</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Nav Section: Approval Berjenjang -->
+            <div class="sidebar-menu-section" sec:authorize="hasAnyRole('SEKPROD', 'KAUPT', 'KAPROD')">
+                <div class="sidebar-menu-title">Persetujuan (Approval)</div>
+                <ul class="sidebar-menu-list">
+                    <!-- Approval Level 1: SEKPROD / KAUPT -->
+                    <li class="sidebar-menu-item" sec:authorize="hasAnyRole('SEKPROD', 'KAUPT', 'KAPROD')">
+                        <a th:href="@{/approval/l1}" class="sidebar-menu-link" th:classappend="${activeMenu == 'approval-l1' ? 'active' : ''}">
+                            <i class="bi bi-shield-check"></i>
+                            <span>Approval Level 1</span>
+                        </a>
+                    </li>
+
+                    <!-- Approval Final: KAPROD -->
+                    <li class="sidebar-menu-item" sec:authorize="hasRole('KAPROD')">
+                        <a th:href="@{/approval/final}" class="sidebar-menu-link" th:classappend="${activeMenu == 'approval-final' ? 'active' : ''}">
+                            <i class="bi bi-patch-check-fill text-warning"></i>
+                            <span>Approval Final</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Sidebar Profile Card -->
+        <div class="sidebar-profile">
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px; font-weight: 700;">
+                <span th:text="${currentUser != null ? #strings.substring(currentUser.namaKaryawan, 0, 1) : 'U'}">U</span>
+            </div>
+            <div class="sidebar-profile-info">
+                <div class="sidebar-profile-name text-truncate" style="max-width: 140px;" th:text="${currentUser != null ? currentUser.namaKaryawan : 'User'}">Nama User</div>
+                <div class="sidebar-profile-email">
+                    <span class="badge bg-info text-dark badge-role" th:text="${currentUser != null ? currentUser.role : 'ROLE'}">ROLE</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MAIN WRAPPER
+         ========================================== -->
+    <div class="main-wrapper">
+        <!-- Top Navbar -->
+        <header class="navbar-custom">
+            <div class="navbar-left">
+                <button class="btn-desktop-toggle d-none d-xl-flex align-items-center justify-content-center me-3" id="desktop-sidebar-toggle" aria-label="Toggle Sidebar">
+                    <i class="bi bi-chevron-bar-left"></i>
+                </button>
+                <button class="sidebar-toggle-btn me-2" id="sidebar-toggle" aria-label="Toggle Navigation">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div class="d-none d-md-block">
+                    <span class="fw-bold text-navy" th:text="${currentUser != null ? currentUser.bagian : 'Sistem KPI'}">Bagian</span>
+                </div>
+            </div>
+
+            <div class="navbar-actions">
+                <!-- User Profile & Logout Dropdown -->
+                <div class="dropdown ms-2">
+                    <button class="navbar-profile-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="profile-dropdown">
+                        <div class="rounded-circle bg-navy text-white d-inline-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px; font-size: 0.85rem; font-weight: 700; background-color: #1E3A8A;">
+                            <span th:text="${currentUser != null ? #strings.substring(currentUser.namaKaryawan, 0, 1) : 'U'}">U</span>
+                        </div>
+                        <span class="navbar-profile-name d-none d-md-inline" th:text="${currentUser != null ? currentUser.namaKaryawan : 'Akun'}">Akun</span>
+                        <i class="bi bi-chevron-down navbar-profile-caret"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="profile-dropdown">
+                        <li class="dropdown-header">
+                            <span class="fw-bold" th:text="${currentUser != null ? currentUser.namaKaryawan : ''}">User</span><br>
+                            <small class="text-muted" th:text="'NPK: ' + (${currentUser != null ? currentUser.npk : '-'})">NPK</small>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form th:action="@{/logout}" method="POST" id="logoutForm">
+                                <button type="submit" class="dropdown-item text-danger">
+                                    <i class="bi bi-box-arrow-right me-2"></i> Keluar (Logout)
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="content-wrapper p-3 p-md-4">
+            <!-- Flash Messages -->
+            <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show shadow-sm d-flex align-items-center" role="alert">
+                <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                <div th:text="${successMessage}">Pesan sukses</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show shadow-sm d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                <div th:text="${errorMessage}">Pesan error</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <!-- Page Body Injection -->
+            <div th:replace="${content}"></div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer mt-auto py-3 px-4 bg-white border-top text-muted d-flex justify-content-between align-items-center">
+            <span class="small">&copy; 2026 Sistem Manajemen KPI Prodi/UPT.</span>
+            <span class="small text-muted">Powered by Spring Boot 3 & Supabase</span>
+        </footer>
+    </div>
+
+    <!-- Core Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script th:src="@{/assets/libs/bootstrap/js/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/assets/libs/flatpickr/flatpickr.min.js}"></script>
+    
+    <!-- Bootstrap Table & SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.6/dist/bootstrap-table.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Custom Spark Toggle Scripts -->
+    <script>
+        $(document).ready(function() {
+            // Sidebar mobile toggle
+            $('#sidebar-toggle').on('click', function() {
+                $('#sidebar').toggleClass('show');
+            });
+            // Desktop toggle
+            $('#desktop-sidebar-toggle').on('click', function() {
+                $('body').toggleClass('sidebar-collapsed');
+            });
+
+            // Initialize all bootstrap tables
+            if ($.fn.bootstrapTable) {
+                $('.custom-table').bootstrapTable();
+            }
+
+            // Universal delete confirmation with SweetAlert2
+            $(document).on('click', '.btn-confirm-delete', function(e) {
+                e.preventDefault();
+                const form = $(this).closest('form');
+                const title = $(this).data('title') || 'Apakah Anda yakin?';
+                const text = $(this).data('text') || 'Tindakan ini tidak dapat dibatalkan.';
+
+                Swal.fire({
+                    title: title,
+                    text: text,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#EF4444',
+                    cancelButtonColor: '#64748B',
+                    confirmButtonText: 'Ya, Hapus',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+
+            // Universal Pick confirmation
+            $(document).on('click', '.btn-confirm-pick', function(e) {
+                e.preventDefault();
+                const form = $(this).closest('form');
+                const activityName = $(this).data('name') || 'aktivitas ini';
+
+                Swal.fire({
+                    title: 'Ambil Aktivitas?',
+                    text: 'Anda akan menjadi PIC resmi untuk aktivitas "' + activityName + '".',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#1E3A8A',
+                    cancelButtonColor: '#64748B',
+                    confirmButtonText: 'Ya, Ambil Aktivitas',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+

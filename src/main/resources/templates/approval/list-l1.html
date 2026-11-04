@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:replace="~{layout/base :: html}">
+<head>
+    <title>Persetujuan Level 1 (SEKPROD / KAUPT) - Sistem KPI Prodi/UPT</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <div class="mb-4">
+            <h3 class="fw-bold text-dark mb-1">Approval Level 1 (Penanggung Jawab KPI)</h3>
+            <p class="text-muted mb-0">Daftar aktivitas berstatus <strong>SUBMITTED</strong> yang menunggu verifikasi dan persetujuan dari SEKPROD / KAUPT.</p>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-3 p-md-4">
+                <table class="table table-hover custom-table align-middle"
+                       data-toggle="table"
+                       data-search="true"
+                       data-pagination="true"
+                       data-page-size="10"
+                       data-search-align="left">
+                    <thead>
+                        <tr>
+                            <th data-field="id" data-sortable="true">ID Aktivitas</th>
+                            <th data-field="kpi" data-sortable="true">KPI Induk</th>
+                            <th data-field="nama" data-sortable="true">Nama Aktivitas</th>
+                            <th data-field="pic" data-sortable="true">PIC Pelaksana</th>
+                            <th data-field="progres" data-sortable="true">Progres Diajukan</th>
+                            <th data-field="deadline" data-sortable="true">Deadline</th>
+                            <th data-field="status">Status</th>
+                            <th class="text-end">Aksi Review</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${pendingList.isEmpty()}">
+                            <td colspan="8" class="text-center py-4 text-muted">Tidak ada pengajuan aktivitas yang sedang menunggu Approval Level 1.</td>
+                        </tr>
+                        <tr th:each="a : ${pendingList}">
+                            <td><code class="fw-bold" th:text="${a.idDetailKpi}">DKP0000001</code></td>
+                            <td>
+                                <div class="fw-semibold text-dark" th:text="${a.kpi.namaKpi}">Nama KPI</div>
+                                <small class="text-muted" th:text="${a.kpi.periode}">2026</small>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-dark" th:text="${a.namaAktivitasKpi}">Nama Aktivitas</div>
+                                <small class="text-muted" th:text="'Bobot: ' + ${a.persentaseBobot} + '%'">Bobot</small>
+                            </td>
+                            <td>
+                                <div class="fw-semibold" th:text="${a.pic != null ? a.pic.namaKaryawan : '-'}">PIC</div>
+                                <small class="text-muted" th:text="${a.pic != null ? a.pic.bagian : ''}">Bagian</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark fs-6"
+                                      th:text="${a.latestUpload != null ? a.latestUpload.persentaseProgres + '%' : '0%'}">0%</span>
+                            </td>
+                            <td>
+                                <span class="small" th:text="${#temporals.format(a.deadline, 'dd MMM yyyy')}">Deadline</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark">SUBMITTED</span>
+                            </td>
+                            <td class="text-end">
+                                <a th:href="@{'/approval/l1/review/' + ${a.idDetailKpi}}" class="btn btn-navy btn-sm d-inline-flex align-items-center gap-1">
+                                    <i class="bi bi-search"></i>
+                                    <span>Tinjau & Verifikasi</span>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

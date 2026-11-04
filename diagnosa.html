@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Diagnosa Koneksi Supabase - KPI Prodi/UPT</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<style>
+body { background: #0A192F; color: #F1F5F9; font-family: monospace; padding: 2rem; }
+.card { background: #1E2D4A; border: 1px solid #2D4A7A; border-radius: 0.75rem; }
+.card-header { background: #1E3A8A; color: white; font-weight: 700; border-radius: 0.75rem 0.75rem 0 0 !important; }
+.status-ok   { color: #22C55E; font-weight: 700; }
+.status-err  { color: #EF4444; font-weight: 700; }
+.status-warn { color: #F59E0B; font-weight: 700; }
+pre { background: #0A192F; color: #38BDF8; padding: 1rem; border-radius: 0.5rem; font-size: 0.8rem; overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="container" style="max-width:860px">
+  <h3 class="text-info mb-1">🔍 Diagnosa Koneksi Supabase</h3>
+  <p class="text-secondary mb-4">Sistem Manajemen KPI Prodi/UPT — Cek apakah database sudah siap</p>
+
+  <div class="card mb-3">
+    <div class="card-header">📡 Status Koneksi</div>
+    <div class="card-body" id="statusBox">
+      <span class="text-secondary">Menginisialisasi...</span>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">📋 Data Karyawan di Database</div>
+    <div class="card-body" id="karyawanBox">
+      <span class="text-secondary">Menunggu...</span>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">🏆 Data KPI di Database</div>
+    <div class="card-body" id="kpiBox">
+      <span class="text-secondary">Menunggu...</span>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">📌 Langkah Selanjutnya</div>
+    <div class="card-body" id="nextStepBox">
+      <span class="text-secondary">Menunggu hasil diagnosa...</span>
+    </div>
+  </div>
+
+  <a href="login.html" class="btn btn-primary me-2">← Kembali ke Login</a>
+  <button onclick="runDiagnosis()" class="btn btn-outline-info">🔄 Cek Ulang</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPA_URL = "https://uwxwxvpunrefywjdialr.supabase.co";
+const SUPA_KEY = "sb_publishable_VEE8XvstXcJ8BT9MnDcZoQ_R87xDZIt";
+
+let db = null;
+try {
+    db = supabase.createClient(SUPA_URL, SUPA_KEY);
+} catch(e) {
+    document.getElementById('statusBox').innerHTML = '<span class="status-err">❌ Gagal inisialisasi Supabase JS Client: ' + e.message + '</span>';
+}
+
+async function runDiagnosis() {
+    const statusBox    = document.getElementById('statusBox');
+    const karyawanBox  = document.getElementById('karyawanBox');
+    const kpiBox       = document.getElementById('kpiBox');
+    const nextStepBox  = document.getElementById('nextStepBox');
+
+    statusBox.innerHTML   = '<span class="text-warning">⏳ Menghubungi Supabase...</span>';
+    karyawanBox.innerHTML = '<span class="text-warning">⏳ Memuat...</span>';
+    kpiBox.innerHTML      = '<span class="text-warning">⏳ Memuat...</span>';
+
+    let karyawanOk = false;
+    let kpiOk = false;
+    let rlsBlocked = false;
+
+    // --- Test 1: Koneksi dasar via fetch ---
+    try {
+        const res = await fetch(SUPA_URL + '/rest/v1/karyawan?select=npk,username,role,status_aktif&limit=10', {
+            headers: {
+                'apikey': SUPA_KEY,
+                'Authorization': 'Bearer ' + SUPA_KEY
+            }
+        });
+        const body = await res.json();
+
+        if (res.ok) {
+            if (Array.isArray(body) && body.length === 0) {
+                statusBox.innerHTML = '<span class="status-warn">⚠️ HTTP 200 — Koneksi OK, tapi tabel "karyawan" KOSONG. Seed data belum dijalankan.</span>';
+                karyawanBox.innerHTML = '<span class="status-warn">⚠️ Tidak ada data karyawan. Jalankan SQL di bawah.</span>';
+                rlsBlocked = false;
+            } else if (Array.isArray(body) && body.length > 0) {
+                statusBox.innerHTML = '<span class="status-ok">✅ HTTP 200 — Koneksi & data karyawan berhasil ditemukan!</span>';
+                karyawanOk = true;
+                karyawanBox.innerHTML = '<pre>' + JSON.stringify(body.map(u => ({npk:u.npk,username:u.username,role:u.role,aktif:u.status_aktif})), null, 2) + '</pre>';
+            } else if (body && body.message && body.message.includes('permission')) {
+                statusBox.innerHTML = '<span class="status-err">🔒 RLS Aktif — Row Level Security memblokir akses anon key.</span>';
+                rlsBlocked = true;
+            } else {
+                statusBox.innerHTML = '<pre class="status-err">' + JSON.stringify(body, null, 2) + '</pre>';
+            }
+        } else {
+            statusBox.innerHTML = '<span class="status-err">❌ HTTP ' + res.status + ': ' + JSON.stringify(body) + '</span>';
+            rlsBlocked = (res.status === 401 || res.status === 403);
+        }
+    } catch(e) {
+        statusBox.innerHTML = '<span class="status-err">❌ Network Error: ' + e.message + '</span>';
+    }
+
+    // --- Test 2: KPI data ---
+    if (karyawanOk) {
+        try {
+            const { data, error } = await db.from('kpi').select('id_kpi, nama_kpi, status, periode').limit(5);
+            if (error) {
+                kpiBox.innerHTML = '<span class="status-err">❌ Error: ' + error.message + '</span>';
+            } else if (!data || data.length === 0) {
+                kpiBox.innerHTML = '<span class="status-warn">⚠️ Tabel KPI kosong. Seed data belum ada.</span>';
+            } else {
+                kpiOk = true;
+                kpiBox.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            }
+        } catch(e) {
+            kpiBox.innerHTML = '<span class="status-err">❌ ' + e.message + '</span>';
+        }
+    }
+
+    // --- Langkah Selanjutnya ---
+    if (karyawanOk && kpiOk) {
+        nextStepBox.innerHTML = `
+            <p class="status-ok mb-2">✅ Database sudah siap! Semua tabel terisi.</p>
+            <a href="login.html" class="btn btn-success">🚀 Mulai Login ke Sistem</a>
+        `;
+    } else if (rlsBlocked) {
+        nextStepBox.innerHTML = `
+            <p class="status-err mb-2">🔒 Row Level Security (RLS) memblokir akses.</p>
+            <p>Jalankan SQL ini di <a href="https://supabase.com/dashboard/project/uwxwxvpunrefywjdialr/sql" target="_blank" class="text-info">Supabase SQL Editor →</a></p>
+            <pre>ALTER TABLE karyawan             DISABLE ROW LEVEL SECURITY;
+ALTER TABLE kpi                  DISABLE ROW LEVEL SECURITY;
+ALTER TABLE kpi_penanggung_jawab DISABLE ROW LEVEL SECURITY;
+ALTER TABLE detail_kpi           DISABLE ROW LEVEL SECURITY;
+ALTER TABLE upload_file          DISABLE ROW LEVEL SECURITY;
+ALTER TABLE approval_log         DISABLE ROW LEVEL SECURITY;</pre>
+        `;
+    } else {
+        nextStepBox.innerHTML = `
+            <p class="status-warn mb-2">📥 Database perlu di-setup. Ikuti langkah berikut:</p>
+            <ol class="text-light">
+              <li>Buka <a href="https://supabase.com/dashboard/project/uwxwxvpunrefywjdialr/sql" target="_blank" class="text-info">Supabase SQL Editor</a></li>
+              <li>Klik <strong>"New query"</strong></li>
+              <li>Copy-paste isi file <code>supabase/SETUP_SUPABASE.sql</code> dari folder project</li>
+              <li>Klik tombol <strong>"Run"</strong> (tombol hijau)</li>
+              <li>Kembali ke halaman ini dan klik <strong>"Cek Ulang"</strong></li>
+            </ol>
+            <div class="alert alert-warning mt-2 py-2 small">
+              📂 File SQL ada di: <code>C:\\Users\\ASUS\\Downloads\\spark-admin-v1.0.0\\supabase\\SETUP_SUPABASE.sql</code>
+            </div>
+        `;
+    }
+}
+
+// Auto-run on load
+runDiagnosis();
+</script>
+</body>
+</html>
+
