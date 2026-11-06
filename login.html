@@ -1,663 +1,197 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Sistem Manajemen KPI Prodi/UPT | ASTRAtech</title>
+    <title>Masuk | KPI Prodi/UPT ASTRAtech</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="assets/images/brand/favicon-64.png">
+    <link rel="apple-touch-icon" href="assets/images/brand/apple-touch-icon.png">
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="assets/images/favicon.ico">
-
-    <!-- Stylesheets -->
     <link rel="stylesheet" href="assets/libs/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/libs/bootstrap-icons/bootstrap-icons.css">
-    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/app.css">
 
     <style>
-        :root {
-            --brand-blue: #0284C7;
-            --brand-blue-primary: #2563EB;
-            --brand-blue-hover: #1D4ED8;
-            --brand-navy-dark: #07152B;
-            --brand-navy-card: rgba(10, 25, 47, 0.75);
-            --brand-navy-border: rgba(255, 255, 255, 0.12);
-        }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
 
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--brand-navy-dark);
-            color: #F8FAFC;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        /* Hero Wrapper with Background Banner */
-        .login-page-container {
-            min-height: 100vh;
-            display: flex;
-            position: relative;
-            background: linear-gradient(135deg,
-                    rgba(7, 21, 43, 0.94) 0%,
-                    rgba(12, 33, 68, 0.90) 45%,
-                    rgba(15, 23, 42, 0.96) 100%),
-                url('assets/images/astratech-banner.png') center center / cover no-repeat fixed;
-        }
-
-        /* Left Hero Content Section */
-        .left-hero-section {
-            flex: 1 1 58%;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 3.5rem 4rem;
-            position: relative;
-            z-index: 2;
-        }
-
-        /* Top Brand */
-        .brand-header {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        .brand-title-box {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .brand-title-main {
-            font-size: 1.85rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            line-height: 1.15;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .brand-badge-blue {
-            color: var(--brand-blue);
-            font-weight: 900;
-        }
-
-        .brand-title-sub {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #94A3B8;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-        }
-
-        .brand-divider-blue {
-            width: 52px;
-            height: 4px;
-            background: linear-gradient(90deg, #0284C7, #38BDF8);
-            border-radius: 99px;
-            margin-top: 0.75rem;
-        }
-
-        /* Main Hero Catchphrase */
-        .hero-headline-area {
-            max-width: 650px;
-            margin-top: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .hero-tagline {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #38BDF8;
-            margin-bottom: 0.5rem;
-        }
-
-        .hero-headline {
-            font-size: 2.6rem;
-            font-weight: 800;
-            line-height: 1.2;
-            color: #FFFFFF;
-            letter-spacing: -0.5px;
-            margin-bottom: 1.25rem;
-        }
-
-        .hero-headline span.highlight {
-            background: linear-gradient(120deg, #FFFFFF 0%, #BAE6FD 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .hero-description {
-            font-size: 0.98rem;
-            line-height: 1.65;
-            color: #94A3B8;
-            margin-bottom: 0;
-        }
-
-        /* Bottom Feature Cards (Glassmorphism like Image 1) */
-        .feature-cards-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.25rem;
-            margin-top: 2rem;
-        }
-
-        .feature-card {
-            background: var(--brand-navy-card);
-            border: 1px solid var(--brand-navy-border);
-            border-radius: 1rem;
-            padding: 1.25rem 1.15rem;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-3px);
-            border-color: rgba(2, 132, 199, 0.45);
-            box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.25);
-        }
-
-        .feature-icon-circle {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: #FFFFFF;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            color: var(--brand-blue-primary);
-            margin-bottom: 0.85rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-        }
-
-        .feature-title {
-            font-size: 0.92rem;
-            font-weight: 700;
-            color: #FFFFFF;
-            margin-bottom: 0.35rem;
-        }
-
-        .feature-desc {
-            font-size: 0.76rem;
-            line-height: 1.45;
-            color: #94A3B8;
-            margin: 0;
-        }
-
-        /* Footer Info */
-        .hero-footer-text {
-            font-size: 0.78rem;
-            color: #64748B;
-            margin-top: 2rem;
-        }
-
-        /* Right Floating Login Form Area */
-        .right-form-section {
-            flex: 0 0 42%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2.5rem 3rem;
-            position: relative;
-            z-index: 3;
-        }
-
-        /* Floating Curved Card */
-        .login-card-floating {
-            background: #FFFFFF;
-            border-radius: 2rem;
-            width: 100%;
-            max-width: 440px;
-            padding: 2.75rem 2.25rem;
-            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
-            color: #1E293B;
-            position: relative;
-        }
-
-        /* Avatar Circle Icon at Top */
-        .login-avatar-circle {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            background: #EFF6FF;
-            border: 2px solid #DBEAFE;
-            color: var(--brand-blue-primary);
-            font-size: 1.8rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.25rem auto;
-            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.18);
-        }
-
-        .login-card-title {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: #0F172A;
-            text-align: center;
-            margin-bottom: 0.35rem;
-            letter-spacing: -0.3px;
-        }
-
-        .login-card-subtitle {
-            font-size: 0.85rem;
-            color: #64748B;
-            text-align: center;
-            margin-bottom: 1.75rem;
-            line-height: 1.4;
-        }
-
-        /* Pill Input Fields */
-        .pill-input-group {
-            position: relative;
-            margin-bottom: 1.25rem;
-        }
-
-        .pill-input-group .input-icon-left {
-            position: absolute;
-            left: 1.25rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #94A3B8;
-            font-size: 1.15rem;
-            z-index: 4;
-            pointer-events: none;
-        }
-
-        .pill-input-control {
-            width: 100%;
-            padding: 0.85rem 1.25rem 0.85rem 3.1rem;
-            font-size: 0.92rem;
-            border-radius: 50px;
-            border: 1.5px solid #E2E8F0;
-            background-color: #F8FAFC;
-            color: #0F172A;
-            transition: all 0.2s ease;
-        }
-
-        .pill-input-control:focus {
-            outline: none;
-            border-color: var(--brand-blue-primary);
-            background-color: #FFFFFF;
-            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
-        }
-
-        .toggle-pwd-btn {
-            position: absolute;
-            right: 1.25rem;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #94A3B8;
-            font-size: 1.1rem;
-            cursor: pointer;
-            z-index: 4;
-            padding: 0;
-        }
-
-        .toggle-pwd-btn:hover {
-            color: #475569;
-        }
-
-        /* Remember Me & Help */
-        .login-options-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.83rem;
-            color: #64748B;
-            margin-bottom: 1.5rem;
-        }
-
-        .login-options-row a {
-            color: var(--brand-blue-primary);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .login-options-row a:hover {
-            text-decoration: underline;
-        }
-
-        /* Sign In Button (Royal Blue Pill) */
-        .btn-signin-blue {
-            width: 100%;
-            padding: 0.85rem 1.5rem;
-            border-radius: 50px;
-            background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 50%, #0284C7 100%);
-            color: #FFFFFF;
-            font-weight: 700;
-            font-size: 1rem;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.45);
-            transition: all 0.25s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .btn-signin-blue:hover {
-            background: linear-gradient(135deg, #1E40AF 0%, #1D4ED8 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 14px 25px -5px rgba(30, 58, 138, 0.55);
+        /* Tata letak seperti main: foto kampus penuh, konten di kiri, kartu form di kanan.
+           Foto diberi lapisan navy pekat (tanpa blur) supaya teks tetap terbaca. */
+        .login-page {
+            min-height: 100vh; display: flex; align-items: stretch;
+            background:
+                linear-gradient(rgba(12, 43, 85, 0.9), rgba(12, 43, 85, 0.9)),
+                url('assets/images/brand/login-bg.jpg') center / cover no-repeat;
             color: #FFFFFF;
         }
+        .login-hero { flex: 1 1 56%; display: flex; flex-direction: column; justify-content: space-between; gap: 2.5rem; padding: 3rem 4rem; }
+        .brand-logo-full { display: block; height: 44px; width: auto; }
+        .brand-sub { margin-top: 0.625rem; font-size: 0.8125rem; color: #C5D1E6; }
+        .hero-eyebrow { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.875rem; font-weight: 600; color: #C5D1E6; margin-bottom: 0.75rem; }
+        .hero-title { color: #FFFFFF; font-size: 2.25rem; font-weight: 700; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 1rem; max-width: 18ch; }
+        .hero-desc { color: #D3DCEC; font-size: 1rem; line-height: 1.6; max-width: 52ch; margin: 0; }
+        .hero-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; max-width: 720px; margin: 0; padding: 0; list-style: none; }
+        .hero-points li { border-top: 1px solid rgba(255, 255, 255, 0.22); padding-top: 0.875rem; }
+        .hero-points .bi { font-size: 1.125rem; color: #7FB2E5; }
+        .hero-points strong { display: block; margin-top: 0.5rem; font-size: 0.9375rem; color: #FFFFFF; }
+        .hero-points p { margin: 0.25rem 0 0; font-size: 0.8125rem; line-height: 1.5; color: #C5D1E6; }
+        .hero-foot { font-size: 0.75rem; color: #AFC0DD; margin: 0; }
 
-        .btn-signin-blue:disabled {
-            opacity: 0.75;
-            cursor: not-allowed;
-            transform: none;
+        .login-side { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; padding: 2rem 4rem 2rem 1rem; }
+        .login-card {
+            width: 400px; max-width: 100%; background: #FFFFFF; color: var(--ink);
+            border-radius: var(--r-box); padding: 2rem; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
         }
-
-        /* Divider */
-        .or-divider {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            margin: 1.4rem 0 1rem 0;
-            color: #94A3B8;
-            font-size: 0.8rem;
+        .login-card h1 { font-size: 1.375rem; font-weight: 700; margin: 0 0 0.25rem; }
+        .login-card .lead-text { color: var(--muted); font-size: 0.875rem; margin: 0 0 1.5rem; }
+        .input-icon { position: relative; }
+        .input-icon > .bi { position: absolute; left: 0.875rem; top: 50%; transform: translateY(-50%); color: var(--muted-2); pointer-events: none; }
+        .input-icon .form-control { height: 44px; padding-left: 2.5rem; }
+        .input-icon .form-control.has-toggle { padding-right: 3rem; }
+        .pwd-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border: 0; background: transparent; border-radius: var(--r-ctl); color: var(--muted); }
+        .pwd-toggle:hover { background: #F1F5F9; color: var(--ink); }
+        .options-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0.25rem 0 1.25rem; font-size: 0.875rem; }
+        .options-row .form-check-label { color: var(--ink-2); }
+        .btn-login { width: 100%; height: 44px; font-size: 0.9375rem; }
+        .form-error { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.75rem 0.875rem; border-radius: var(--r-ctl); background: var(--bad-bg); border: 1px solid var(--bad-line); color: #991B1B; font-size: 0.875rem; margin-bottom: 1rem; }
+        .session-note { padding: 0.75rem 0.875rem; border-radius: var(--r-ctl); background: var(--info-bg); border: 1px solid var(--info-line); color: var(--navy); font-size: 0.875rem; margin-bottom: 1rem; }
+        .or-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.5rem 0 1rem; color: var(--muted-2); font-size: 0.8125rem; }
+        .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+        .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .quick-btn {
+            display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem;
+            padding: 0.5rem 0.75rem; border: 1px solid #CBD5E1; border-radius: var(--r-ctl);
+            background: #FFFFFF; text-align: left; font-size: 0.875rem; font-weight: 600; color: var(--ink);
         }
+        .quick-btn small { font-weight: 400; color: var(--muted-2); font-size: 0.75rem; }
+        .quick-btn:hover { border-color: #94A3B8; background: #F8FAFC; }
+        .quick-btn[aria-pressed="true"] { border-color: var(--astra-600); background: var(--astra-50); }
 
-        .or-divider::before,
-        .or-divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #E2E8F0;
+        /* Masuk bertahap: konten kiri lalu kartu form */
+        .login-hero > div, .login-card { animation: rise-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+        .login-hero > div:nth-child(2) { animation-delay: 0.08s; }
+        .login-hero > div:nth-child(3) { animation-delay: 0.16s; }
+        .login-card { animation-delay: 0.12s; }
+        .hero-points li { transition: border-color 0.2s ease; }
+        .hero-points li:hover { border-top-color: rgba(255, 255, 255, 0.6); }
+        @keyframes rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+        .login-card .form-control:focus { border-color: var(--astra-600); box-shadow: 0 0 0 3px rgba(10, 94, 168, 0.15) !important; }
+        .btn-login { transition: transform 0.12s ease, background-color 0.15s ease; }
+        .btn-login:active { transform: scale(0.99); }
+
+        @media (max-width: 1199.98px) {
+            .login-hero { padding: 2.5rem; }
+            .hero-points { grid-template-columns: 1fr; gap: 1rem; max-width: 420px; }
+            .login-side { padding: 2rem 2.5rem 2rem 0; }
         }
-
-        .or-divider span {
-            padding: 0 0.85rem;
-        }
-
-        /* Quick Account Helper Buttons */
-        .quick-roles-container {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.5rem;
-        }
-
-        .btn-role-quick {
-            border: 1px solid #E2E8F0;
-            background: #F8FAFC;
-            border-radius: 50px;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #334155;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.35rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-role-quick:hover {
-            background: #EFF6FF;
-            border-color: #BFDBFE;
-            color: var(--brand-blue-primary);
-        }
-
-        /* Responsive Breakpoints */
-        @media (max-width: 1199px) {
-            .hero-headline {
-                font-size: 2.15rem;
-            }
-
-            .left-hero-section {
-                padding: 2.5rem 2.5rem;
-            }
-
-            .right-form-section {
-                padding: 2rem 2rem;
-            }
-        }
-
-        @media (max-width: 991px) {
-            .login-page-container {
-                flex-direction: column;
-                background-attachment: scroll;
-            }
-
-            .left-hero-section {
-                flex: none;
-                padding: 2.5rem 1.5rem 1.5rem 1.5rem;
-            }
-
-            .hero-headline-area {
-                margin-top: 1rem;
-                margin-bottom: 1.5rem;
-            }
-
-            .hero-headline {
-                font-size: 1.85rem;
-            }
-
-            .feature-cards-grid {
-                grid-template-columns: 1fr;
-                gap: 0.85rem;
-            }
-
-            .right-form-section {
-                flex: none;
-                padding: 1.5rem 1.25rem 3rem 1.25rem;
-            }
-
-            .login-card-floating {
-                max-width: 100%;
-                padding: 2.25rem 1.5rem;
-            }
+        @media (max-width: 991.98px) {
+            .login-page { flex-direction: column; }
+            .login-hero { padding: 1.75rem 1.5rem 0; gap: 1.25rem; }
+            .hero-title { font-size: 1.5rem; margin-bottom: 0.5rem; }
+            .hero-desc { font-size: 0.875rem; }
+            .hero-points, .hero-foot, .hero-eyebrow { display: none; }
+            .login-side { padding: 1.5rem; }
+            .login-card { width: 100%; padding: 1.5rem; }
         }
     </style>
 </head>
-
 <body>
-
-    <div class="login-page-container">
-
-        <!-- ==========================================
-         LEFT HERO SECTION (ASTRAtech Corporate Blue Theme)
-         ========================================== -->
-        <div class="left-hero-section">
-
-            <!-- Top Branding -->
+    <div class="login-page">
+        <section class="login-hero" aria-label="Tentang aplikasi">
             <div>
-                <div class="brand-header">
-                    <!-- ASTRAtech Logo Text / Style from Image 2 -->
-                    <div class="brand-title-box">
-                        <div class="brand-title-main">
-                            <span style="color: #FFFFFF; font-weight: 900; letter-spacing: -1px;">ASTRA<span
-                                    class="brand-badge-blue">tech</span></span>
-                        </div>
-                        <div class="brand-title-sub">
-                            <span class="text-info fw-bold">KPI</span> Online &bull; Sistem Manajemen Kinerja
-                        </div>
-                    </div>
-                </div>
-                <div class="brand-divider-blue"></div>
+                <img class="brand-logo-full" src="assets/images/brand/logo-landscape-white.png" width="201" height="44" alt="ASTRAtech, member of ASTRA">
+                <div class="brand-sub">KPI Online, sistem manajemen kinerja prodi dan UPT</div>
             </div>
 
-            <!-- Main Catchphrase Headline -->
-            <div class="hero-headline-area">
-                <div class="hero-tagline">
-                    <i class="bi bi-shield-check text-info me-1"></i> Program Studi & UPT
-                </div>
-                <h1 class="hero-headline">
-                    Manage KPI with<br>
-                    <span class="highlight">Ease, Speed, and Integration</span>
-                </h1>
-                <p class="hero-description">
-                    Monitor capaian KPI secara terstruktur, kelola rincian aktivitas berbobot 100%, dan percepat alur
-                    approval bertingkat (Kaprod, Sekprod, Ka UPT, PIC) dalam satu sistem terintegrasi.
-                </p>
-            </div>
-
-            <!-- Bottom 3 Feature Cards -->
             <div>
-                <div class="feature-cards-grid">
-
-                    <!-- Card 1 -->
-                    <div class="feature-card">
-                        <div class="feature-icon-circle">
-                            <i class="bi bi-graph-up-arrow"></i>
-                        </div>
-                        <div class="feature-title">Progress Monitoring</div>
-                        <p class="feature-desc">
-                            Pantau capaian target KPI dan status aktivitas secara otomatis dan real-time.
-                        </p>
-                    </div>
-
-                    <!-- Card 2 -->
-                    <div class="feature-card">
-                        <div class="feature-icon-circle">
-                            <i class="bi bi-people-fill"></i>
-                        </div>
-                        <div class="feature-title">Team Collaboration</div>
-                        <p class="feature-desc">
-                            Kolaborasi terpadu antara Kaprodi, Sekprodi, Ka. UPT, dan Dosen/Staff PIC.
-                        </p>
-                    </div>
-
-                    <!-- Card 3 -->
-                    <div class="feature-card">
-                        <div class="feature-icon-circle">
-                            <i class="bi bi-database-check"></i>
-                        </div>
-                        <div class="feature-title">Integrated Data</div>
-                        <p class="feature-desc">
-                            Database Supabase cloud aman dengan validasi riwayat bukti upload dokumen.
-                        </p>
-                    </div>
-
-                </div>
-
-                <!-- Footer Attribution -->
-                <div class="hero-footer-text">
-                    &copy; 2026 ASTRAtech - Manajemen Informatika. All rights reserved.
-                </div>
+                <div class="hero-eyebrow"><i class="bi bi-mortarboard" aria-hidden="true"></i> Program studi dan UPT</div>
+                <h2 class="hero-title">Pantau KPI dari aktivitas sampai pengesahan.</h2>
+                <p class="hero-desc">Kaprod menetapkan sasaran, Sekprod dan Ka. UPT memecahnya menjadi aktivitas berbobot 100%, PIC mengunggah bukti, lalu progres disahkan lewat approval bertingkat.</p>
             </div>
 
-        </div>
+            <div>
+                <ul class="hero-points">
+                    <li>
+                        <i class="bi bi-graph-up" aria-hidden="true"></i>
+                        <strong>Pemantauan progres</strong>
+                        <p>Progres KPI dihitung otomatis dari aktivitas yang sudah disahkan.</p>
+                    </li>
+                    <li>
+                        <i class="bi bi-people" aria-hidden="true"></i>
+                        <strong>Kerja tim</strong>
+                        <p>Kaprod, Sekprod, Ka. UPT, dan PIC bekerja di satu alur.</p>
+                    </li>
+                    <li>
+                        <i class="bi bi-folder-check" aria-hidden="true"></i>
+                        <strong>Bukti tercatat</strong>
+                        <p>Setiap pengajuan menyimpan rencana, bukti, dan riwayat keputusan.</p>
+                    </li>
+                </ul>
+                <p class="hero-foot mt-4">© 2026 ASTRAtech, Manajemen Informatika</p>
+            </div>
+        </section>
 
-        <!-- ==========================================
-         RIGHT FLOATING CARD SECTION (Login Form)
-         ========================================== -->
-        <div class="right-form-section">
-            <div class="login-card-floating">
+        <main class="login-side">
+            <div class="login-card">
+                <h1>Masuk</h1>
+                <p class="lead-text">Gunakan username atau NPK yang terdaftar.</p>
 
-                <!-- Top Avatar Icon Badge -->
-                <div class="login-avatar-circle">
-                    <i class="bi bi-person"></i>
+                <div id="alreadyLoggedInBanner" class="session-note d-none" role="status">
+                    Anda masih masuk sebagai <strong id="loggedUserName">-</strong>.
+                    <div class="d-flex gap-2 mt-2">
+                        <a href="index.html" class="btn btn-sm btn-primary">Buka dashboard</a>
+                        <button type="button" onclick="clearSession()" class="btn btn-sm btn-outline-secondary">Ganti akun</button>
+                    </div>
                 </div>
 
-                <!-- Header Titles -->
-                <h2 class="login-card-title">Welcome Back!</h2>
-                <p class="login-card-subtitle">
-                    Masuk ke akun Anda untuk mengelola sasaran &amp; capaian KPI di database Supabase.
-                </p>
+                <div id="loginAlert" class="form-error d-none" role="alert">
+                    <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+                    <span id="alertMessage"></span>
+                </div>
 
-                <!-- Already Logged In Session Banner -->
-                <div id="alreadyLoggedInBanner" class="alert alert-info py-2 small d-none mb-3 border-0 rounded-3">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <i class="bi bi-person-check-fill me-1 text-primary"></i>
-                            Masuk: <strong id="loggedUserName">-</strong>
+                <form id="loginForm" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label" for="username">Username atau NPK</label>
+                        <div class="input-icon">
+                            <i class="bi bi-person" aria-hidden="true"></i>
+                            <input type="text" id="username" class="form-control" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
                         </div>
-                        <div class="d-flex gap-1">
-                            <a href="index.html" class="btn btn-sm btn-primary py-0 px-2 rounded-pill">Dashboard</a>
-                            <button onclick="clearSession()"
-                                class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill">Keluar</button>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label" for="password">Kata sandi</label>
+                        <div class="input-icon">
+                            <i class="bi bi-lock" aria-hidden="true"></i>
+                            <input type="password" id="password" class="form-control has-toggle" autocomplete="current-password" required>
+                            <button type="button" class="pwd-toggle" id="togglePassword" aria-label="Tampilkan kata sandi" aria-pressed="false">
+                                <i class="bi bi-eye" id="toggleIcon" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
-                </div>
 
-                <!-- Error Banner -->
-                <div id="loginAlert"
-                    class="alert alert-danger py-2 small d-none align-items-center mb-3 rounded-3 border-0">
-                    <i class="bi bi-exclamation-circle-fill me-2 fs-6"></i>
-                    <span id="alertMessage">Pesan error</span>
-                </div>
-
-                <!-- Form -->
-                <form id="loginForm">
-
-                    <!-- Username / NPK -->
-                    <div class="pill-input-group">
-                        <i class="bi bi-person input-icon-left"></i>
-                        <input type="text" id="username" class="pill-input-control" placeholder="Email / Username / NPK"
-                            required autofocus>
-                    </div>
-
-                    <!-- Password -->
-                    <div class="pill-input-group">
-                        <i class="bi bi-lock input-icon-left"></i>
-                        <input type="password" id="password" class="pill-input-control" placeholder="Password" required>
-                        <button type="button" class="toggle-pwd-btn" id="togglePassword"
-                            aria-label="Toggle password visibility">
-                            <i class="bi bi-eye" id="toggleIcon"></i>
-                        </button>
-                    </div>
-
-                    <!-- Remember Me & Help -->
-                    <div class="login-options-row">
+                    <div class="options-row">
                         <div class="form-check m-0">
-                            <input class="form-check-input" type="checkbox" id="rememberMe" checked>
-                            <label class="form-check-label user-select-none" for="rememberMe">Remember Me</label>
+                            <input class="form-check-input" type="checkbox" id="rememberMe" checked aria-describedby="rememberHint">
+                            <label class="form-check-label" for="rememberMe">Ingat saya</label>
+                            <span id="rememberHint" class="visually-hidden">Jika tidak dicentang, Anda keluar otomatis saat browser ditutup.</span>
                         </div>
-                        <a href="javascript:void(0)" onclick="showHelpInfo()">Bantuan akun?</a>
+                        <button type="button" class="btn btn-link p-0 small" onclick="showHelpInfo()">Bantuan akun?</button>
                     </div>
 
-                    <!-- Submit Button (Royal Blue Pill) -->
-                    <button type="submit" class="btn-signin-blue" id="btnSubmit">
-                        <span>Sign In</span>
-                        <i class="bi bi-arrow-right"></i>
-                    </button>
+                    <button type="submit" class="btn btn-primary btn-login" id="btnSubmit">Masuk</button>
                 </form>
 
-                <!-- Divider -->
-                <div class="or-divider">
-                    <span>or</span>
+                <div class="or-divider">atau pakai akun demo</div>
+                <div class="quick-grid" role="group" aria-label="Akun demo, kata sandi password123">
+                    <button type="button" class="quick-btn" aria-pressed="false" onclick="quickFill(this, 'kaprod')">Kaprod <small>kaprod</small></button>
+                    <button type="button" class="quick-btn" aria-pressed="false" onclick="quickFill(this, 'sekprod')">Sekprod <small>sekprod</small></button>
+                    <button type="button" class="quick-btn" aria-pressed="false" onclick="quickFill(this, 'kaupt')">Ka. UPT <small>kaupt</small></button>
+                    <button type="button" class="quick-btn" aria-pressed="false" onclick="quickFill(this, 'pic')">PIC aktivitas <small>pic</small></button>
                 </div>
-
-                <!-- Quick Account Selector -->
-                <div>
-                    <div class="text-muted small text-center mb-2 fw-semibold" style="font-size: 0.76rem;">
-                        Pilih akun terdaftar di Supabase:
-                    </div>
-                    <div class="quick-roles-container">
-                        <button type="button" class="btn-role-quick" onclick="quickFill('kaprod')">
-                            <i class="bi bi-person-fill-gear text-primary"></i>
-                            <span>KAPROD</span>
-                        </button>
-                        <button type="button" class="btn-role-quick" onclick="quickFill('sekprod')">
-                            <i class="bi bi-person-fill-check text-info"></i>
-                            <span>SEKPROD</span>
-                        </button>
-                        <button type="button" class="btn-role-quick" onclick="quickFill('kaupt')">
-                            <i class="bi bi-building text-primary"></i>
-                            <span>KAUPT</span>
-                        </button>
-                        <button type="button" class="btn-role-quick" onclick="quickFill('pic')">
-                            <i class="bi bi-person-workspace text-success"></i>
-                            <span>PIC</span>
-                        </button>
-                    </div>
-                </div>
-
             </div>
-        </div>
-
+        </main>
     </div>
 
     <!-- Scripts -->
@@ -672,6 +206,8 @@
         const SUPA_URL = "https://uwxwxvpunrefywjdialr.supabase.co";
         const SUPA_KEY = "sb_publishable_VEE8XvstXcJ8BT9MnDcZoQ_R87xDZIt";
 
+        const ROLE_LABELS = { KAPROD: 'Kaprod', SEKPROD: 'Sekprod', KAUPT: 'Ka. UPT', PIC_ACTIVITY: 'PIC aktivitas' };
+
         let kpiDb = null;
         try {
             if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
@@ -682,111 +218,106 @@
         }
 
         // ==============================================================
-        // Cek Sesi Aktif
+        // Cek sesi aktif (localStorage = "Ingat saya", sessionStorage = sesi browser)
         // ==============================================================
         try {
-            const activeUser = JSON.parse(localStorage.getItem('kpi_user'));
+            const activeUser = JSON.parse(localStorage.getItem('kpi_user') || sessionStorage.getItem('kpi_user'));
             if (activeUser && activeUser.nama_karyawan && activeUser.role) {
                 document.getElementById('alreadyLoggedInBanner').classList.remove('d-none');
-                document.getElementById('loggedUserName').innerText = activeUser.nama_karyawan + ' (' + activeUser.role + ')';
+                document.getElementById('loggedUserName').innerText =
+                    activeUser.nama_karyawan + ' (' + (ROLE_LABELS[activeUser.role] || activeUser.role) + ')';
             }
         } catch (e) { }
 
         function clearSession() {
             localStorage.removeItem('kpi_user');
+            sessionStorage.removeItem('kpi_user');
             document.getElementById('alreadyLoggedInBanner').classList.add('d-none');
-            Swal.fire({ icon: 'info', title: 'Sesi Dihapus', timer: 1000, showConfirmButton: false });
+            document.getElementById('username').focus();
         }
 
-        function quickFill(userKey) {
+        function quickFill(button, userKey) {
+            document.querySelectorAll('.quick-btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
+            button.setAttribute('aria-pressed', 'true');
             document.getElementById('username').value = userKey;
             document.getElementById('password').value = 'password123';
-            document.getElementById('username').focus();
+            document.getElementById('btnSubmit').focus();
         }
 
         function showHelpInfo() {
             Swal.fire({
-                title: 'Informasi Akun Supabase',
-                html: `
-                <div class="text-start small">
-                    <p class="mb-2">Akun terdaftar di database <code>public.karyawan</code>:</p>
-                    <ul class="list-unstyled mb-3">
-                        <li>🔷 <strong>KAPROD:</strong> <code>kaprod</code> (Dr. Hendra Kusuma, M.T.)</li>
-                        <li>🔷 <strong>SEKPROD:</strong> <code>sekprod</code> (Siti Aminah, S.Kom., M.Cs.)</li>
-                        <li>🔷 <strong>KAUPT:</strong> <code>kaupt</code> (Bambang Sudarsono, S.T.)</li>
-                        <li>🔷 <strong>PIC:</strong> <code>pic</code> (PIC Contoh)</li>
-                    </ul>
-                    <div class="alert alert-light border p-2 mb-0">
-                        Password default: <code>password123</code>
-                    </div>
-                </div>
-            `,
-                icon: 'info',
-                confirmButtonText: 'Tutup',
-                confirmButtonColor: '#2563EB'
+                title: 'Bantuan akun',
+                html: `<div class="text-start">
+                    <p>Akun dibuat oleh Kaprod di menu <strong>Data karyawan</strong>. Jika lupa kata sandi atau akun dinonaktifkan, hubungi Kaprod program studi Anda.</p>
+                    <p class="mb-0">Untuk mencoba aplikasi, pakai salah satu akun demo di bawah form. Kata sandi semua akun demo: <code>password123</code>.</p>
+                </div>`,
+                confirmButtonText: 'Mengerti',
+                buttonsStyling: false,
+                customClass: { confirmButton: 'btn btn-primary' }
             });
         }
 
-        // Toggle password visibility
+        // Tampilkan / sembunyikan kata sandi
         document.getElementById('togglePassword').addEventListener('click', function () {
             const pwd = document.getElementById('password');
             const icon = document.getElementById('toggleIcon');
-            if (pwd.type === 'password') {
-                pwd.type = 'text';
-                icon.className = 'bi bi-eye-slash';
-            } else {
-                pwd.type = 'password';
-                icon.className = 'bi bi-eye';
-            }
+            const show = pwd.type === 'password';
+            pwd.type = show ? 'text' : 'password';
+            icon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+            this.setAttribute('aria-pressed', String(show));
+            this.setAttribute('aria-label', show ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
         });
 
+        function showError(message) {
+            document.getElementById('alertMessage').innerText = message;
+            document.getElementById('loginAlert').classList.remove('d-none');
+        }
+
         // ==============================================================
-        // LOGIN: 100% TERHUBUNG LANGSUNG KE SUPABASE DATABASE
+        // Login ke tabel karyawan di Supabase
         // ==============================================================
         document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
 
             const btn = document.getElementById('btnSubmit');
-            const alertBox = document.getElementById('loginAlert');
-            const alertMsg = document.getElementById('alertMessage');
             const loginInput = document.getElementById('username').value.trim();
             const pwdInput = document.getElementById('password').value;
+            const WRONG = 'Username/NPK atau kata sandi salah.';
 
-            alertBox.classList.add('d-none');
+            document.getElementById('loginAlert').classList.add('d-none');
+
+            if (!loginInput || !pwdInput) {
+                showError('Isi username atau NPK dan kata sandi.');
+                return;
+            }
+            // Cegah karakter yang bisa mengubah filter query (, ( ) dan sejenisnya)
+            if (!/^[A-Za-z0-9._@-]{1,50}$/.test(loginInput)) {
+                showError(WRONG);
+                return;
+            }
+
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Memverifikasi...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Memeriksa akun…';
 
             try {
                 if (!kpiDb) {
-                    throw new Error("Koneksi Supabase belum siap. Periksa koneksi internet Anda.");
+                    throw new Error('Tidak bisa terhubung ke server. Periksa koneksi internet, lalu coba lagi.');
                 }
 
-                // 1. Cari pengguna langsung di tabel karyawan Supabase
                 const { data, error } = await kpiDb
                     .from('karyawan')
                     .select('*')
                     .or(`username.eq.${loginInput},npk.eq.${loginInput}`)
                     .limit(1);
 
-                if (error) {
-                    throw new Error("Gagal mengambil data dari Supabase: " + error.message);
-                }
-
-                if (!data || data.length === 0) {
-                    throw new Error(`Username atau NPK "${loginInput}" tidak terdaftar di database Supabase.`);
-                }
+                if (error) throw new Error('Server sedang bermasalah. Coba lagi beberapa saat lagi.');
+                if (!data || data.length === 0) throw new Error(WRONG);
 
                 const user = data[0];
 
-                // 2. Periksa status aktif
-                if (user.status_aktif === false) {
-                    throw new Error("Akun Anda saat ini berstatus NONAKTIF di sistem. Hubungi KAPROD.");
-                }
-
-                // 3. Verifikasi kata sandi langsung terhadap hash di Supabase (BCrypt)
+                // Verifikasi kata sandi terhadap hash bcrypt
                 let valid = false;
                 const dbPassword = user.password || '';
-
                 if (typeof dcodeIO !== 'undefined' && dcodeIO.bcrypt && (dbPassword.startsWith('$2a$') || dbPassword.startsWith('$2b$') || dbPassword.startsWith('$2y$'))) {
                     try {
                         valid = dcodeIO.bcrypt.compareSync(pwdInput, dbPassword);
@@ -797,40 +328,36 @@
                     valid = (pwdInput === dbPassword);
                 }
 
-                if (!valid) {
-                    throw new Error("Kata sandi salah. Silakan coba lagi.");
+                if (!valid) throw new Error(WRONG);
+
+                if (user.status_aktif === false) {
+                    throw new Error('Akun Anda sedang nonaktif. Hubungi Kaprod untuk mengaktifkannya.');
                 }
 
-                // 4. Simpan sesi pengguna dari data resmi Supabase
-                localStorage.setItem('kpi_user', JSON.stringify({
+                // "Ingat saya": simpan di localStorage (tetap masuk setelah browser ditutup),
+                // jika tidak dicentang simpan di sessionStorage (keluar saat browser ditutup)
+                const session = JSON.stringify({
                     npk: user.npk,
                     nama_karyawan: user.nama_karyawan,
                     role: user.role,
                     bagian: user.bagian,
                     gender: user.gender,
                     username: user.username
-                }));
-
-                await Swal.fire({
-                    title: 'Berhasil Masuk!',
-                    text: `Selamat datang, ${user.nama_karyawan} (${user.role})`,
-                    icon: 'success',
-                    timer: 1200,
-                    showConfirmButton: false
                 });
+                localStorage.removeItem('kpi_user');
+                sessionStorage.removeItem('kpi_user');
+                if (document.getElementById('rememberMe').checked) localStorage.setItem('kpi_user', session);
+                else sessionStorage.setItem('kpi_user', session);
 
-                window.location.href = 'index.html';
-
+                // Umpan balik singkat seperti main, lalu ke dashboard
+                btn.innerHTML = '<i class="bi bi-check2 me-2" aria-hidden="true"></i>Berhasil, membuka dashboard…';
+                setTimeout(() => { window.location.href = 'index.html'; }, 500);
             } catch (err) {
-                alertBox.classList.remove('d-none');
-                alertBox.classList.add('d-flex');
-                alertMsg.innerText = err.message;
-            } finally {
+                showError(err.message);
                 btn.disabled = false;
-                btn.innerHTML = '<span>Sign In</span><i class="bi bi-arrow-right ms-1"></i>';
+                btn.textContent = 'Masuk';
             }
         });
     </script>
 </body>
-
 </html>

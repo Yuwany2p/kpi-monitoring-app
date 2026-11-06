@@ -25,7 +25,8 @@ try {
 // 2. Auth State Validation
 let currentUser = null;
 try {
-    const stored = localStorage.getItem('kpi_user');
+    // Sesi: localStorage bila "Ingat saya" dicentang, sessionStorage bila tidak
+    const stored = localStorage.getItem('kpi_user') || sessionStorage.getItem('kpi_user');
     if (stored) {
         currentUser = JSON.parse(stored);
     }
@@ -34,7 +35,7 @@ try {
 }
 
 if (!currentUser || !currentUser.npk || !currentUser.role) {
-    localStorage.removeItem('kpi_user');
+    localStorage.removeItem('kpi_user'); sessionStorage.removeItem('kpi_user');
     window.location.replace("login.html");
 }
 
@@ -67,17 +68,155 @@ function getUserName(npk) {
 function formatActivitySchedule(startDate, endDate, legacyDeadline) {
     const end = endDate || legacyDeadline;
     if (startDate && end) {
-        return '<div class="d-flex flex-column"><span class="small text-muted" style="font-size: 0.72rem;">Mulai: ' + startDate + '</span><span class="small fw-bold text-dark">Selesai: ' + end + '</span></div>';
+        return '<span class="text-nowrap">' + fmtDate(startDate) + ' – ' + fmtDate(end) + '</span>';
     }
     if (end) {
-        return '<span class="small fw-bold text-dark">' + end + '</span>';
+        return '<span class="text-nowrap">Sampai ' + fmtDate(end) + '</span>';
     }
-    return '<span class="text-muted small">-</span>';
+    return '<span class="text-muted">-</span>';
 }
 
 function getKpiName(idKpi) {
     if (!idKpi) return '-';
     return kpiCache[idKpi] ? kpiCache[idKpi].nama_kpi : idKpi;
+}
+
+// ==============================================================
+// Helper tampilan (escape HTML, label status & peran, toast)
+// ==============================================================
+
+/** Escape teks sebelum dimasukkan ke innerHTML / atribut HTML. */
+function esc(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/** Argumen string untuk onclick="fn(...)": aman dari kutip & tag. */
+function jsArg(value) {
+    return esc(JSON.stringify(String(value ?? '')));
+}
+
+/** Hanya izinkan tautan unduh berupa data: (berkas unggahan) atau http(s). */
+function safeFileHref(url) {
+    const u = String(url || '').trim();
+    if (/^data:(?!text\/html)[\w.+-]+\/[\w.+-]+;base64,/i.test(u)) return u;
+    if (/^https?:\/\//i.test(u)) return u;
+    return '';
+}
+
+const STATUS_INFO = {
+    // Header KPI
+    DRAFT: ['Draf', 'neutral'],
+    PUBLISHED: ['Terbit', 'info'],
+    CLOSED: ['Ditutup', 'muted'],
+    // Detail aktivitas
+    OPEN: ['Belum diambil', 'neutral'],
+    PICKED: ['Dikerjakan', 'info'],
+    SUBMITTED: ['Menunggu level 1', 'warn'],
+    APPROVED_L1: ['Menunggu final', 'warn'],
+    REVISION: ['Perlu revisi', 'bad'],
+    DONE: ['Selesai', 'ok'],
+};
+
+function statusLabel(status) {
+    return (STATUS_INFO[status] || [status || '-'])[0];
+}
+
+function statusTag(status) {
+    const [label, tone] = STATUS_INFO[status] || [status || '-', 'neutral'];
+    return `<span class="tag tag-${tone}">${esc(label)}</span>`;
+}
+
+const ROLE_LABELS = {
+    KAPROD: 'Kaprod',
+    SEKPROD: 'Sekprod',
+    KAUPT: 'Ka. UPT',
+    PIC_ACTIVITY: 'PIC aktivitas',
+};
+
+function roleLabel(role) {
+    return ROLE_LABELS[role] || role || '-';
+}
+
+const MONTHS_ID = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+/** "2026-11-30" -> "30 Nov 2026" */
+function fmtDate(iso) {
+    if (!iso) return '-';
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return esc(iso);
+    return `${parseInt(m[3], 10)} ${MONTHS_ID[parseInt(m[2], 10) - 1]} ${m[1]}`;
+}
+
+/** Bar progres + angka. Warna = status: >=80 hijau, >=50 kuning, <50 merah. */
+function progressCell(pct, { neutral = false } = {}) {
+    const v = Math.max(0, Math.min(100, parseFloat(pct) || 0));
+    const color = neutral ? 'var(--astra-600)' : (v >= 80 ? '#059669' : (v >= 50 ? '#D97706' : '#DC2626'));
+    return `<div class="progress-wrap">
+        <div class="progress" role="progressbar" aria-valuenow="${v}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres">
+            <div class="progress-bar" style="width:${v}%;background:${color}"></div>
+        </div>
+        <span class="pct">${esc(pct ?? 0)}%</span>
+    </div>`;
+}
+
+/** Tombol aksi berupa ikon: selalu dengan aria-label & tooltip. */
+function iconBtn(icon, label, onclick, tone = '') {
+    return `<button type="button" class="btn-icon${tone ? ' btn-icon--' + tone : ''}" title="${esc(label)}" aria-label="${esc(label)}" onclick="${onclick}"><i class="bi ${icon}" aria-hidden="true"></i></button>`;
+}
+
+function idCell(id) {
+    return `<td><span class="id-code">${esc(id)}</span></td>`;
+}
+
+function emptyRow(colspan, text, icon = 'bi-inbox') {
+    return `<tr><td colspan="${colspan}" class="table-empty"><i class="bi ${icon}" aria-hidden="true"></i>${esc(text)}</td></tr>`;
+}
+
+// Kerangka baris (skeleton) selama data dimuat; teks tetap dibacakan pembaca layar
+function loadingRow(colspan, text) {
+    const widths = [55, 80, 40, 65, 50, 70, 45, 60, 35];
+    const row = (r) => `<tr class="skeleton-row" aria-hidden="true">${
+        Array.from({ length: colspan }, (_, i) => `<td><span class="skeleton" style="width:${widths[(i + r * 3) % widths.length]}%"></span></td>`).join('')
+    }</tr>`;
+    return `<tr class="visually-hidden"><td colspan="${colspan}" role="status">${esc(text)}</td></tr>${row(0)}${row(1)}${row(2)}`;
+}
+
+function errorRow(colspan, message) {
+    return `<tr><td colspan="${colspan}" class="table-empty text-danger"><i class="bi bi-exclamation-circle" aria-hidden="true"></i>Data belum bisa dimuat: ${esc(message)}</td></tr>`;
+}
+
+// SweetAlert: popup sukses diganti toast singkat, tombol mengikuti gaya aplikasi.
+const Toast = (typeof Swal !== 'undefined') ? Swal.mixin({
+    toast: true, position: 'top-end', timer: 2800, timerProgressBar: false, showConfirmButton: false,
+}) : null;
+
+if (typeof Swal !== 'undefined') {
+    const swalFire = Swal.fire.bind(Swal);
+    Swal.fire = function (a, b, c) {
+        const opts = (typeof a === 'object' && a !== null) ? { ...a } : { title: a, text: b, icon: c };
+        if (opts.icon === 'success' && !opts.showCancelButton) {
+            return Toast.fire({ icon: 'success', title: opts.title || 'Tersimpan' });
+        }
+        const danger = /ef4444|dc2626|b91c1c/i.test(opts.confirmButtonColor || '');
+        delete opts.confirmButtonColor;
+        delete opts.cancelButtonColor;
+        return swalFire({
+            buttonsStyling: false,
+            reverseButtons: true,
+            customClass: {
+                confirmButton: danger ? 'btn btn-danger' : 'btn btn-primary',
+                cancelButton: 'btn btn-outline-secondary',
+            },
+            cancelButtonText: 'Batal',
+            confirmButtonText: 'Tutup',
+            ...opts,
+        });
+    };
 }
 
 // 3. Initialize on Document Ready
@@ -88,75 +227,46 @@ document.addEventListener('DOMContentLoaded', async function() {
     await refreshLookupCaches();
     switchView('dashboard');
 
-    // Dynamic Network Connectivity Monitor
+    // Status koneksi di header (seperti main): cek online/offline + ping berkala
     function updateNetworkStatus(isOnline) {
         const badge = document.getElementById('networkStatusBadge');
-        const dot = document.getElementById('networkStatusDot');
         const text = document.getElementById('networkStatusText');
         const bellDot = document.getElementById('bellStatusDot');
         const detail = document.getElementById('networkStatusDetail');
-
-        if (isOnline) {
-            if (badge) {
-                badge.style.backgroundColor = '#F0FDF4';
-                badge.style.borderColor = '#BBF7D0';
-                badge.style.color = '#166534';
-            }
-            if (dot) dot.className = 'status-pulse-dot';
-            if (text) text.innerText = 'Online';
-            if (bellDot) {
-                bellDot.className = 'position-absolute top-0 start-100 translate-middle p-1 bg-success border border-light rounded-circle';
-            }
-            if (detail) {
-                detail.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i> Terhubung ke Jaringan (Online)';
-            }
-        } else {
-            if (badge) {
-                badge.style.backgroundColor = '#FEF2F2';
-                badge.style.borderColor = '#FECACA';
-                badge.style.color = '#991B1B';
-            }
-            if (dot) dot.className = 'status-pulse-dot-red';
-            if (text) text.innerText = 'Offline';
-            if (bellDot) {
-                bellDot.className = 'position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle';
-            }
-            if (detail) {
-                detail.innerHTML = '<i class="bi bi-x-circle-fill text-danger me-1"></i> Terputus dari Jaringan (Offline)';
-            }
+        if (badge) badge.classList.toggle('is-offline', !isOnline);
+        if (text) text.textContent = isOnline ? 'Terhubung' : 'Terputus';
+        if (bellDot) bellDot.classList.toggle('is-offline', !isOnline);
+        if (detail) {
+            detail.innerHTML = isOnline
+                ? '<i class="bi bi-wifi" aria-hidden="true"></i> Terhubung ke server'
+                : '<i class="bi bi-wifi-off" aria-hidden="true"></i> Terputus dari server. Perubahan belum bisa disimpan.';
         }
     }
-
     updateNetworkStatus(navigator.onLine);
     window.addEventListener('online', () => updateNetworkStatus(true));
     window.addEventListener('offline', () => updateNetworkStatus(false));
-
-    // Periodic ping to verify real network connectivity
     setInterval(async () => {
-        if (!navigator.onLine) {
-            updateNetworkStatus(false);
-            return;
-        }
-        // Chromium blocks fetch under file:// with origin 'null' CORS error
-        if (window.location.protocol === 'file:') {
-            updateNetworkStatus(navigator.onLine);
-            return;
-        }
+        if (!navigator.onLine) { updateNetworkStatus(false); return; }
+        if (window.location.protocol === 'file:') { updateNetworkStatus(navigator.onLine); return; }
         try {
             const res = await fetch('assets/images/favicon.ico?_ping=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
             updateNetworkStatus(res.ok);
         } catch (e) {
             updateNetworkStatus(false);
         }
-    }, 10000);
+    }, 15000);
 
-    // Sidebar Mobile Toggle
+    // Menu samping di layar kecil (drawer)
     const sidebarToggle = document.getElementById('sidebar-toggle');
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function() {
-            document.getElementById('sidebar').classList.toggle('show');
-        });
-    }
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('sidebar')?.classList.contains('show')) {
+            closeSidebar();
+            sidebarToggle?.focus();
+        }
+    });
 
     // Modal forms bindings
     const fk = document.getElementById('formKaryawan');
@@ -194,6 +304,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (rejectRadio) rejectRadio.addEventListener('change', updateReviewValidation);
 });
 
+function openSidebar() {
+    document.getElementById('sidebar')?.classList.add('show');
+    document.getElementById('sidebarBackdrop')?.classList.add('show');
+    document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'true');
+    // Tunggu sebentar sampai drawer terlihat, baru pindahkan fokus ke menu aktif
+    setTimeout(() => {
+        (document.querySelector('#sidebar .sidebar-menu-link.active') || document.querySelector('#sidebar .sidebar-menu-link'))?.focus();
+    }, 30);
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar')?.classList.remove('show');
+    document.getElementById('sidebarBackdrop')?.classList.remove('show');
+    document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', 'false');
+}
+
 // Setup User Info & Role Permissions
 function setupUserInterface() {
     if (!currentUser) return;
@@ -210,24 +336,21 @@ function setupUserInterface() {
     setElemText('userNameTop', currentUser.nama_karyawan);
     setElemText('userNameDropdown', currentUser.nama_karyawan);
     setElemText('userNpkDropdown', "NPK: " + currentUser.npk);
-    setElemText('userRole', currentUser.role);
-    setElemText('userRoleTop', currentUser.role);
-    setElemText('userRoleDropdown', currentUser.role);
+    setElemText('userRole', roleLabel(currentUser.role));
+    setElemText('userRoleTop', roleLabel(currentUser.role));
+    setElemText('userRoleDropdown', 'Peran: ' + roleLabel(currentUser.role));
     setElemText('dashUserName', currentUser.nama_karyawan);
-    setElemText('dashUserRole', currentUser.role);
+    setElemText('dashUserRole', roleLabel(currentUser.role));
     setElemText('userBagian', currentUser.bagian || 'Program Studi');
 
-    // Live Date in Header
+    // Tanggal hari ini di header
     const dateEl = document.getElementById('headerLiveDate');
     if (dateEl) {
-        try {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
-            dateEl.innerText = dateStr;
-        } catch (e) {
-            dateEl.innerText = 'Sistem Manajemen KPI';
-        }
+        dateEl.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
+    const h = new Date().getHours();
+    setElemText('heroGreeting', h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 18 ? 'Selamat sore' : 'Selamat malam');
+    setElemText('heroDate', new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }));
 
     // Role-based visibility
     const role = currentUser.role; // KAPROD, SEKPROD, KAUPT, PIC_ACTIVITY
@@ -258,8 +381,15 @@ function switchView(viewName) {
     const targetView = document.getElementById('view-' + viewName);
     if (targetView) targetView.classList.add('active');
 
-    const targetNav = document.getElementById('nav-' + viewName);
-    if (targetNav) targetNav.classList.add('active');
+    document.querySelectorAll('.sidebar-menu-link[aria-current]').forEach(link => link.removeAttribute('aria-current'));
+    const navName = viewName === 'detail-kpi' ? 'kpi' : viewName;
+    const targetNav = document.getElementById('nav-' + navName);
+    if (targetNav) {
+        targetNav.classList.add('active');
+        targetNav.setAttribute('aria-current', 'page');
+    }
+    closeSidebar();
+    window.scrollTo(0, 0);
 
     // Trigger data fetch per view
     if (viewName === 'dashboard') loadDashboard();
@@ -273,17 +403,14 @@ function switchView(viewName) {
 
 function logout() {
     Swal.fire({
-        title: 'Keluar dari Sistem?',
-        text: 'Sesi Anda saat ini akan diakhiri.',
-        icon: 'question',
+        title: 'Keluar dari sistem?',
+        text: 'Anda perlu masuk lagi untuk membuka aplikasi.',
         showCancelButton: true,
-        confirmButtonColor: '#EF4444',
-        cancelButtonColor: '#64748B',
-        confirmButtonText: 'Ya, Keluar',
+        confirmButtonText: 'Keluar',
         cancelButtonText: 'Batal'
     }).then(res => {
         if (res.isConfirmed) {
-            localStorage.removeItem('kpi_user');
+            localStorage.removeItem('kpi_user'); sessionStorage.removeItem('kpi_user');
             window.location.href = "login.html";
         }
     });
@@ -298,6 +425,51 @@ function generatePrefixedId(prefix) {
 // ==========================================
 // 1. DASHBOARD MODULE
 // ==========================================
+
+// Ringkasan "fokus hari ini" di hero dashboard, disesuaikan dengan peran
+function renderHeroSummary(activities, { totalActs, countDone, overdue }) {
+    const role = currentUser.role;
+    const count = (fn) => activities.filter(fn).length;
+    const items = [];
+    const add = (n, icon, text, view, tone = '') => items.push({ n, icon, text, view, tone });
+
+    if (role === 'KAPROD') {
+        add(count(a => a.status === 'APPROVED_L1'), 'bi-patch-check', 'aktivitas menunggu approval final Anda', 'approval-final', 'warn');
+    } else if (role === 'SEKPROD' || role === 'KAUPT') {
+        add(count(a => a.status === 'SUBMITTED'), 'bi-shield-check', 'aktivitas menunggu approval level 1', 'approval-l1', 'warn');
+    } else if (role === 'PIC_ACTIVITY') {
+        const mine = activities.filter(a => a.npk_pic === currentUser.npk);
+        add(mine.filter(a => a.status === 'REVISION').length, 'bi-arrow-counterclockwise', 'aktivitas Anda perlu revisi', 'my-activities', 'bad');
+        add(mine.filter(a => a.status === 'PICKED').length, 'bi-list-check', 'aktivitas sedang Anda kerjakan', 'my-activities');
+        add(count(a => a.status === 'OPEN'), 'bi-inbox', 'aktivitas belum diambil', 'pick');
+    }
+    if (overdue > 0) add(overdue, 'bi-exclamation-triangle', 'aktivitas melewati batas waktu, cek timeline', 'timeline', 'bad');
+
+    const list = document.getElementById('heroFocus');
+    if (list) {
+        const shown = items.filter(i => i.n > 0);
+        list.innerHTML = shown.length === 0
+            ? '<li><i class="bi bi-check2-circle" aria-hidden="true"></i>Tidak ada yang mendesak hari ini. Semua aman.</li>'
+            : shown.map(i => {
+                const body = `<i class="bi ${i.icon}" aria-hidden="true"></i><strong>${i.n}</strong> ${esc(i.text)}`;
+                const go = i.view === 'timeline'
+                    ? `document.getElementById('ganttChartContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' })`
+                    : `switchView(${jsArg(i.view)})`;
+                return `<li class="${i.tone ? 'is-' + i.tone : ''}"><a href="#${i.view}" onclick="${go}; return false;">${body}<i class="bi bi-arrow-right hero-go" aria-hidden="true"></i></a></li>`;
+            }).join('');
+    }
+
+    const pct = totalActs > 0 ? Math.round((countDone / totalActs) * 100) : 0;
+    const ring = document.getElementById('heroRingValue');
+    if (ring) {
+        ring.style.opacity = pct === 0 ? '0' : '1'; // ujung bulat tampil sebagai titik saat 0%
+        setTimeout(() => ring.setAttribute('stroke-dasharray', `${pct} 100`), 60);
+    }
+    const pctEl = document.getElementById('heroRingPct');
+    if (pctEl) { if (typeof window.countTo === 'function') window.countTo(pctEl, pct, '%'); else pctEl.textContent = pct + '%'; }
+    const sub = document.getElementById('heroRingSub');
+    if (sub) sub.textContent = `${countDone} dari ${totalActs}`;
+}
 async function loadDashboard() {
     if (!currentUser) return;
     try {
@@ -324,26 +496,25 @@ async function loadDashboard() {
             pendingApproval = activities ? activities.filter(a => a.status === 'SUBMITTED' || a.status === 'APPROVED_L1').length : 0;
         }
 
-        const elTotalKpi = document.getElementById('statTotalKpi');
-        if (elTotalKpi) elTotalKpi.innerText = totalKpis;
-
-        const elTotalActs = document.getElementById('statTotalActivities');
-        if (elTotalActs) elTotalActs.innerText = totalActs;
-
-        const elPending = document.getElementById('statPendingApproval');
-        if (elPending) elPending.innerText = pendingApproval;
-
-        const elDone = document.getElementById('statDone');
-        if (elDone) elDone.innerText = countDone;
+        const setStat = (id, n) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (typeof window.countTo === 'function') window.countTo(el, n); else el.innerText = n;
+        };
+        setStat('statTotalKpi', totalKpis);
+        setStat('statTotalActivities', totalActs);
+        setStat('statPendingApproval', pendingApproval);
+        setStat('statDone', countDone);
 
         // Check Overdue
         const todayStr = new Date().toISOString().split('T')[0];
         const overdueActs = activities ? activities.filter(a => { const due = a.end_date || a.deadline; return a.status !== 'DONE' && due && due < todayStr; }) : [];
+
+        renderHeroSummary(activities || [], { totalActs, countDone, overdue: overdueActs.length });
         const alertBox = document.getElementById('overdueAlert');
         if (alertBox) {
             if (overdueActs.length > 0) {
                 alertBox.classList.remove('d-none');
-                alertBox.classList.add('d-flex');
                 const oc = document.getElementById('overdueCount');
                 if (oc) oc.innerText = overdueActs.length;
             } else {
@@ -355,26 +526,19 @@ async function loadDashboard() {
         const tbody = document.getElementById('dashKpiTableBody');
         if (tbody) {
             if (!kpis || kpis.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">Belum ada data KPI di database.</td></tr>`;
+                tbody.innerHTML = emptyRow(5, 'Belum ada KPI. KPI dibuat oleh Kaprod di menu Header KPI.');
             } else {
                 tbody.innerHTML = kpis.map(k => `
                     <tr>
                         <td>
-                            <a href="javascript:void(0)" onclick="openKpiDetail('${k.id_kpi}')" class="fw-bold text-dark text-decoration-none">${k.nama_kpi}</a>
-                            <div class="small text-muted">Level: ${k.level || '-'} | Kat: ${k.kategori || '-'}</div>
+                            <a href="#kpi" onclick="openKpiDetail(${jsArg(k.id_kpi)}); return false;" class="fw-semibold text-dark text-decoration-none">${esc(k.nama_kpi)}</a>
+                            <span class="cell-sub">${esc(k.level || '-')}, ${esc(k.kategori || '-')}</span>
                         </td>
-                        <td class="small">${k.periode || '-'}</td>
-                        <td><span class="badge ${k.status === 'PUBLISHED' ? 'bg-success' : (k.status === 'DRAFT' ? 'bg-secondary' : 'bg-dark')}">${k.status}</span></td>
-                        <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="progress flex-grow-1 progress-compact">
-                                    <div class="progress-bar" style="width: ${k.persentase_progres}%; background-color: ${k.persentase_progres >= 80 ? '#22C55E' : (k.persentase_progres >= 50 ? '#F59E0B' : '#EF4444')}"></div>
-                                </div>
-                                <span class="small fw-bold">${k.persentase_progres}%</span>
-                            </div>
-                        </td>
+                        <td>${esc(k.periode || '-')}</td>
+                        <td>${statusTag(k.status)}</td>
+                        <td>${progressCell(k.persentase_progres)}</td>
                         <td class="text-end">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="openKpiDetail('${k.id_kpi}')"><i class="bi bi-chevron-right"></i></button>
+                            ${iconBtn('bi-chevron-right', 'Buka detail ' + k.nama_kpi, `openKpiDetail(${jsArg(k.id_kpi)})`)}
                         </td>
                     </tr>
                 `).join('');
@@ -395,17 +559,17 @@ async function loadDashboard() {
         if (workloadContainer) {
             const workloadKeys = Object.keys(workloadMap);
             if (workloadKeys.length === 0) {
-                workloadContainer.innerHTML = `<div class="text-muted text-center py-4 small">Belum ada aktivitas yang diambil PIC.</div>`;
+                workloadContainer.innerHTML = `<div class="table-empty">Belum ada aktivitas yang dipegang PIC.</div>`;
             } else {
-                workloadContainer.innerHTML = `<ul class="list-group list-group-flush">` + workloadKeys.map(name => `
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="rounded-circle bg-light border p-2 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                <i class="bi bi-person text-secondary"></i>
-                            </div>
-                            <span class="fw-semibold text-dark small">${name}</span>
-                        </div>
-                        <span class="badge bg-primary rounded-pill">${workloadMap[name]} Aktivitas</span>
+                workloadContainer.innerHTML = `<ul class="workload-list">` + workloadKeys
+                    .sort((a, b) => workloadMap[b] - workloadMap[a])
+                    .map(name => `
+                    <li>
+                        <span class="d-flex align-items-center gap-2 min-w-0">
+                            <span class="avatar" aria-hidden="true">${esc(name.charAt(0).toUpperCase())}</span>
+                            <span class="text-truncate">${esc(name)}</span>
+                        </span>
+                        <span class="count">${workloadMap[name]} aktivitas</span>
                     </li>
                 `).join('') + `</ul>`;
             }
@@ -419,6 +583,8 @@ async function loadDashboard() {
 
     } catch (err) {
         console.error("Dashboard error:", err);
+        const tbody = document.getElementById('dashKpiTableBody');
+        if (tbody) tbody.innerHTML = errorRow(5, err.message);
     }
 }
 
@@ -443,9 +609,9 @@ function populateGanttFilter(kpis) {
     const filterEl = document.getElementById('ganttKpiFilter');
     if (!filterEl) return;
     const currentVal = filterEl.value || 'ALL';
-    let html = `<option value="ALL">-- Semua KPI Induk (${kpis.length}) --</option>`;
+    let html = `<option value="ALL">Semua KPI (${kpis.length})</option>`;
     kpis.forEach(k => {
-        html += `<option value="${k.id_kpi}">${k.nama_kpi}</option>`;
+        html += `<option value="${esc(k.id_kpi)}">${esc(k.nama_kpi)}</option>`;
     });
     filterEl.innerHTML = html;
     filterEl.value = currentVal;
@@ -457,8 +623,8 @@ function renderGanttChart() {
 
     const year = ganttViewDate.getFullYear();
     const month = ganttViewDate.getMonth();
-    const monthNames = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
-    const monthNamesShort = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const monthNamesShort = MONTHS_ID;
 
     // Update Month Label in Header
     const labelEl = document.getElementById('ganttMonthLabel');
@@ -495,18 +661,18 @@ function renderGanttChart() {
     if (reminderTextEl) {
         const dateFormatted = realToday.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
         if (todayActiveActs.length === 0 && dueTodayActs.length === 0) {
-            reminderTextEl.innerHTML = `Hari ini (${dateFormatted}): <span class="text-muted">Tidak ada aktivitas yang terjadwal aktif hari ini.</span>`;
+            reminderTextEl.innerHTML = `${esc(dateFormatted)}: tidak ada aktivitas yang terjadwal hari ini.`;
         } else {
-            let msg = `Hari ini (${dateFormatted}): Terdapat <strong>${todayActiveActs.length} aktivitas berjalan aktif</strong>`;
+            let msg = `${esc(dateFormatted)}: <strong>${todayActiveActs.length} aktivitas berjalan</strong>`;
             if (dueTodayActs.length > 0) {
-                msg += ` &mdash; <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> ${dueTodayActs.length} aktivitas jatuh tempo (deadline) hari ini!</span>`;
+                msg += `, <strong class="text-danger">${dueTodayActs.length} berakhir hari ini</strong>`;
             }
-            reminderTextEl.innerHTML = msg;
+            reminderTextEl.innerHTML = msg + '.';
         }
     }
 
     if (displayKpis.length === 0) {
-        container.innerHTML = `<div class="p-4 text-center text-muted">Belum ada KPI yang dipilih atau tersedia.</div>`;
+        container.innerHTML = `<div class="table-empty">Belum ada KPI untuk ditampilkan.</div>`;
         return;
     }
 
@@ -517,12 +683,12 @@ function renderGanttChart() {
     let html = `
     <div class="gantt-header-container">
         <div class="gantt-header-left">
-            <span>TASK DESCRIPTION</span>
+            <span>Aktivitas</span>
             <span class="text-end">PIC</span>
         </div>
         <div class="gantt-header-right">
             <div class="gantt-month-strip" style="min-width: ${totalDaysWidth}px;">
-                <span class="px-3 py-0.5 rounded" style="background: rgba(255,255,255,0.08); border-left: 3px solid #F97316;">${monthNames[month]} ${year}</span>
+                <span>${monthNames[month]} ${year}</span>
             </div>
             <div class="gantt-days-strip" style="min-width: ${totalDaysWidth}px; grid-template-columns: repeat(${daysInMonth}, ${colWidth}px);">
                 ${daysArray.map(d => {
@@ -540,8 +706,7 @@ function renderGanttChart() {
         html += `
         <div class="gantt-kpi-row">
             <div class="gantt-kpi-left">
-                <i class="bi bi-folder2-open text-warning me-1"></i>
-                <span class="text-truncate" style="max-width: 330px;" title="${k.nama_kpi}">KPI: ${k.nama_kpi}</span>
+                <span class="text-truncate" style="max-width: 300px;" title="${esc(k.nama_kpi)}">${esc(k.nama_kpi)}</span>
             </div>
             <div class="gantt-kpi-right" style="min-width: ${totalDaysWidth}px;"></div>
         </div>
@@ -551,8 +716,8 @@ function renderGanttChart() {
             html += `
             <div class="gantt-task-row">
                 <div class="gantt-task-left">
-                    <span class="small text-muted ps-3">&mdash; Belum ada detail aktivitas</span>
-                    <span class="text-muted small">-</span>
+                    <span class="text-muted">Belum ada aktivitas</span>
+                    <span class="text-muted">-</span>
                 </div>
                 <div class="gantt-task-right" style="min-width: ${totalDaysWidth}px; grid-template-columns: repeat(${daysInMonth}, ${colWidth}px);">
                     ${daysArray.map(d => `<div class="gantt-grid-col ${d === todayDay ? 'today' : ''}"></div>`).join('')}
@@ -561,7 +726,7 @@ function renderGanttChart() {
             `;
         } else {
             kpiActs.forEach(a => {
-                const picName = a.npk_pic ? getUserName(a.npk_pic) : 'Belum Ada PIC';
+                const picName = a.npk_pic ? getUserName(a.npk_pic) : 'Belum ada PIC';
                 const startStr = a.start_date;
                 const endStr = a.end_date || a.deadline;
 
@@ -598,12 +763,12 @@ function renderGanttChart() {
                         }
 
                         const scheduleText = formatActivitySchedule(a.start_date, a.end_date, a.deadline).replace(/<[^>]+>/g, ' ');
-                        const tooltipText = `${a.nama_aktivitas_kpi}&#10;PIC: ${picName}&#10;Jadwal: ${scheduleText}&#10;Status: ${a.status} (${a.persentase_progres}%)`;
+                        const tooltipText = `${esc(a.nama_aktivitas_kpi)}&#10;PIC: ${esc(picName)}&#10;Jadwal: ${esc(scheduleText.trim())}&#10;Status: ${esc(statusLabel(a.status))} (${esc(a.persentase_progres)}%)`;
 
                         barHtml = `
-                        <div class="gantt-pill ${pillClass}" style="grid-column: ${startDay} / span ${spanCount};" title="${tooltipText}" onclick="openKpiDetail('${a.id_kpi}')">
-                            <span>${a.persentase_progres}%</span>
-                        </div>
+                        <button type="button" class="gantt-pill ${pillClass}" style="grid-column: ${startDay} / span ${spanCount};" title="${tooltipText}" aria-label="${esc(a.nama_aktivitas_kpi)}, progres ${esc(a.persentase_progres)}%" onclick="openKpiDetail(${jsArg(a.id_kpi)})">
+                            <span>${esc(a.persentase_progres)}%</span>
+                        </button>
                         `;
                     }
                 }
@@ -611,12 +776,8 @@ function renderGanttChart() {
                 html += `
                 <div class="gantt-task-row">
                     <div class="gantt-task-left">
-                        <span class="small fw-semibold text-dark text-truncate me-2" style="max-width: 240px;" title="${a.nama_aktivitas_kpi}">
-                            &mdash; ${a.nama_aktivitas_kpi}
-                        </span>
-                        <span class="badge bg-light text-secondary border px-2.5 py-1 rounded-pill small flex-shrink-0" style="max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="PIC: ${picName}">
-                            ${picName}
-                        </span>
+                        <span class="text-dark text-truncate" style="max-width: 200px;" title="${esc(a.nama_aktivitas_kpi)}">${esc(a.nama_aktivitas_kpi)}</span>
+                        <span class="role-tag gantt-pic" title="PIC: ${esc(picName)}">${esc(picName)}</span>
                     </div>
                     <div class="gantt-task-right" style="min-width: ${totalDaysWidth}px; grid-template-columns: repeat(${daysInMonth}, ${colWidth}px);">
                         ${daysArray.map(d => `<div class="gantt-grid-col ${d === todayDay ? 'today' : ''}"></div>`).join('')}
@@ -638,16 +799,16 @@ function renderGanttChart() {
 async function loadKaryawan() {
     if (!currentUser) return;
     const tbody = document.getElementById('karyawanTableBody');
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Memuat data dari Supabase...</td></tr>`;
+    tbody.innerHTML = loadingRow(8, 'Memuat data karyawan…');
 
     const { data: users, error } = await db.from('karyawan').select('*').order('npk');
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">Gagal memuat karyawan: ${error.message}</td></tr>`;
+        tbody.innerHTML = errorRow(8, error.message);
         return;
     }
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada data karyawan.</td></tr>`;
+        tbody.innerHTML = emptyRow(8, 'Belum ada karyawan. Tambahkan lewat tombol Tambah karyawan.', 'bi-people');
         return;
     }
 
@@ -656,60 +817,26 @@ async function loadKaryawan() {
 
     tbody.innerHTML = users.map(u => {
         const initial = u.nama_karyawan ? u.nama_karyawan.charAt(0).toUpperCase() : 'U';
-        const isMale = (u.gender || '').toLowerCase() === 'laki-laki';
-
-        let roleBadgeStyle = 'background-color: #475569; color: #FFFFFF;';
-        if (u.role === 'KAPROD') roleBadgeStyle = 'background-color: #DC2626; color: #FFFFFF;';
-        else if (u.role === 'SEKPROD') roleBadgeStyle = 'background-color: #2563EB; color: #FFFFFF;';
-        else if (u.role === 'KAUPT') roleBadgeStyle = 'background-color: #06B6D4; color: #082F49;';
-        else if (u.role === 'PIC_ACTIVITY') roleBadgeStyle = 'background-color: #0A192F; color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3);';
-
+        const isSelf = currentUser.npk === u.npk;
         return `
-        <tr>
-            <td class="py-3 px-3">
-                <span class="badge bg-light text-dark border px-2.5 py-1.5 fw-bold font-monospace" style="font-size: 0.9rem;">${u.npk}</span>
-            </td>
-            <td class="py-3 px-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold shadow-xs flex-shrink-0" 
-                         style="width: 38px; height: 38px; background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%); font-size: 0.9rem;">
-                        ${initial}
-                    </div>
-                    <div class="fw-bold text-dark" style="font-size: 0.95rem;">${u.nama_karyawan}</div>
+        <tr class="${u.status_aktif ? '' : 'text-muted'}">
+            <td><span class="id-code">${esc(u.npk)}</span></td>
+            <td class="cell-name">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="avatar" aria-hidden="true">${esc(initial)}</span>
+                    <span class="fw-semibold ${u.status_aktif ? 'text-dark' : ''}">${esc(u.nama_karyawan)}${isSelf ? ' <span class="text-muted fw-normal small">(Anda)</span>' : ''}</span>
                 </div>
             </td>
-            <td class="py-3 px-3">
-                <div class="d-flex align-items-center gap-2 fw-semibold text-dark" style="font-size: 0.95rem;">
-                    <i class="bi ${isMale ? 'bi-gender-male text-primary' : 'bi-gender-female text-danger'} fs-5"></i>
-                    <span>${u.gender || '-'}</span>
-                </div>
-            </td>
-            <td class="py-3 px-3">
-                <span class="badge px-3 py-1.5 rounded-2 fw-semibold" style="${roleBadgeStyle} font-size: 0.825rem; letter-spacing: 0.3px;">
-                    ${u.role}
-                </span>
-            </td>
-            <td class="py-3 px-3">
-                <span class="fw-semibold text-dark" style="font-size: 0.95rem;">${u.bagian || '-'}</span>
-            </td>
-            <td class="py-3 px-3">
-                <span class="fw-semibold text-dark" style="font-size: 0.95rem;">${u.username}</span>
-            </td>
-            <td class="py-3 px-3">
-                <span class="badge ${u.status_aktif ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle'} px-3 py-1.5 rounded-pill fw-semibold" style="font-size: 0.8rem;">
-                    <i class="bi ${u.status_aktif ? 'bi-check-circle-fill text-success' : 'bi-slash-circle-fill text-danger'} me-1"></i>
-                    ${u.status_aktif ? 'AKTIF' : 'NONAKTIF'}
-                </span>
-            </td>
-            <td class="py-3 px-3 text-end">
-                <div class="d-inline-flex gap-2">
-                    <button class="btn btn-sm btn-light border text-warning shadow-xs rounded-2 px-2.5 py-1.5" title="Ubah Status Aktif" onclick="toggleKaryawan('${u.npk}', ${u.status_aktif})">
-                        <i class="bi ${u.status_aktif ? 'bi-lock-fill' : 'bi-unlock-fill'}"></i>
-                    </button>
-                    ${currentUser.npk !== u.npk ? `
-                    <button class="btn btn-sm btn-light border text-danger shadow-xs rounded-2 px-2.5 py-1.5" title="Hapus Karyawan" onclick="deleteKaryawan('${u.npk}', '${(u.nama_karyawan || '').replace(/'/g, "\\'")}')">
-                        <i class="bi bi-trash-fill"></i>
-                    </button>` : ''}
+            <td>${esc(u.gender || '-')}</td>
+            <td><span class="role-tag">${esc(roleLabel(u.role))}</span></td>
+            <td>${esc(u.bagian || '-')}</td>
+            <td>${esc(u.username)}</td>
+            <td>${u.status_aktif ? '<span class="tag tag-neutral">Aktif</span>' : '<span class="tag tag-muted">Nonaktif</span>'}</td>
+            <td class="text-end">
+                <div class="row-actions">
+                    ${isSelf ? '<span class="small text-muted">Akun Anda</span>' : `
+                    ${iconBtn(u.status_aktif ? 'bi-lock' : 'bi-unlock', (u.status_aktif ? 'Nonaktifkan ' : 'Aktifkan ') + u.nama_karyawan, `toggleKaryawan(${jsArg(u.npk)}, ${u.status_aktif ? 'true' : 'false'})`)}
+                    ${iconBtn('bi-trash', 'Hapus ' + u.nama_karyawan, `deleteKaryawan(${jsArg(u.npk)}, ${jsArg(u.nama_karyawan)})`, 'danger')}`}
                 </div>
             </td>
         </tr>
@@ -749,11 +876,11 @@ async function handleSaveKaryawan(e) {
 
         if (error) throw error;
 
-        Swal.fire('Berhasil!', `Karyawan ${nama} berhasil ditambahkan.`, 'success');
+        Swal.fire({ icon: 'success', title: `${nama} ditambahkan` });
         bootstrap.Modal.getInstance(document.getElementById('modalKaryawan')).hide();
         loadKaryawan();
     } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        Swal.fire('Gagal', err.message, 'error');
     } finally {
         btn.disabled = false;
     }
@@ -762,26 +889,26 @@ async function handleSaveKaryawan(e) {
 async function toggleKaryawan(npk, currentStatus) {
     const { error } = await db.from('karyawan').update({ status_aktif: !currentStatus }).eq('npk', npk);
     if (error) {
-        Swal.fire('Error', error.message, 'error');
+        Swal.fire('Gagal', error.message, 'error');
     } else {
+        Swal.fire({ icon: 'success', title: currentStatus ? 'Akun dinonaktifkan' : 'Akun diaktifkan' });
         loadKaryawan();
     }
 }
 
 async function deleteKaryawan(npk, nama) {
     const res = await Swal.fire({
-        title: 'Hapus Karyawan?',
-        text: `Hapus ${nama} (${npk})? Tindakan tidak dapat dibatalkan.`,
-        icon: 'warning',
+        title: `Hapus ${nama}?`,
+        text: `Akun dengan NPK ${npk} akan dihapus permanen dan tidak bisa dipulihkan.`,
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
-        confirmButtonText: 'Ya, Hapus'
+        confirmButtonText: 'Hapus karyawan'
     });
     if (res.isConfirmed) {
         const { error } = await db.from('karyawan').delete().eq('npk', npk);
-        if (error) Swal.fire('Error', error.message, 'error');
+        if (error) Swal.fire('Gagal', error.message, 'error');
         else {
-            Swal.fire('Terhapus', 'Data karyawan berhasil dihapus.', 'success');
+            Swal.fire({ icon: 'success', title: 'Karyawan dihapus' });
             loadKaryawan();
         }
     }
@@ -793,7 +920,7 @@ async function deleteKaryawan(npk, nama) {
 async function loadKpi() {
     if (!currentUser) return;
     const tbody = document.getElementById('kpiTableBody');
-    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4">Memuat data KPI...</td></tr>`;
+    tbody.innerHTML = loadingRow(9, 'Memuat data KPI…');
 
     let query = db.from('kpi').select('*');
     
@@ -804,12 +931,12 @@ async function loadKpi() {
 
     const { data: kpis, error } = await query;
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-danger">${error.message}</td></tr>`;
+        tbody.innerHTML = errorRow(9, error.message);
         return;
     }
 
     if (!kpis || kpis.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Belum ada data Header KPI.</td></tr>`;
+        tbody.innerHTML = emptyRow(9, currentUser.role === 'KAPROD' ? 'Belum ada KPI. Buat KPI pertama lewat tombol Buat KPI.' : 'Belum ada KPI yang diterbitkan Kaprod.', 'bi-bullseye');
         return;
     }
 
@@ -828,48 +955,27 @@ async function loadKpi() {
 
     tbody.innerHTML = kpis.map(k => {
         const pjs = pjMap[k.id_kpi] || [];
-        const pjNames = pjs.map(npk => `<span class="badge bg-primary-subtle text-primary border">${getUserName(npk)}</span>`).join(' ');
-        
+        const pjNames = pjs.map(npk => esc(getUserName(npk))).join(', ');
+        const isKaprod = currentUser.role === 'KAPROD';
+
         return `
             <tr>
-                <td><code class="fw-bold">${k.id_kpi}</code></td>
-                <td>
-                    <a href="javascript:void(0)" onclick="openKpiDetail('${k.id_kpi}')" class="fw-bold text-dark text-decoration-none">${k.nama_kpi}</a>
+                ${idCell(k.id_kpi)}
+                <td class="cell-name">
+                    <a href="#kpi" onclick="openKpiDetail(${jsArg(k.id_kpi)}); return false;" class="fw-semibold text-dark text-decoration-none">${esc(k.nama_kpi)}</a>
                 </td>
-                <td>
-                    <span class="badge bg-light text-dark border">${k.level || '-'}</span>
-                    <div class="small text-muted">${k.kategori || '-'}</div>
-                </td>
-                <td class="small fw-semibold">${k.periode || '-'}</td>
-                <td>${pjNames || '<span class="text-muted small">- Belum Ada PJ -</span>'}</td>
-                <td class="fw-bold">${k.persentase_bobot}%</td>
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="progress flex-grow-1 progress-compact">
-                            <div class="progress-bar" style="width: ${k.persentase_progres}%; background-color: ${k.persentase_progres >= 80 ? '#22C55E' : (k.persentase_progres >= 50 ? '#F59E0B' : '#EF4444')}"></div>
-                        </div>
-                        <span class="small fw-bold">${k.persentase_progres}%</span>
-                    </div>
-                </td>
-                <td><span class="badge ${k.status === 'PUBLISHED' ? 'bg-success' : (k.status === 'DRAFT' ? 'bg-secondary' : 'bg-dark')}">${k.status}</span></td>
+                <td><span class="role-tag">${esc(k.level || '-')}</span><span class="cell-sub">${esc(k.kategori || '-')}</span></td>
+                <td>${esc(k.periode || '-')}</td>
+                <td>${pjNames || '<span class="text-muted">Belum ditentukan</span>'}</td>
+                <td class="text-end fw-semibold">${esc(k.persentase_bobot)}%</td>
+                <td>${progressCell(k.persentase_progres)}</td>
+                <td>${statusTag(k.status)}</td>
                 <td class="text-end">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary" title="Detail & Aktivitas" onclick="openKpiDetail('${k.id_kpi}')">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        ${currentUser.role === 'KAPROD' ? `
-                            ${k.status === 'DRAFT' ? `
-                            <button class="btn btn-outline-success" title="Publikasikan" onclick="updateKpiStatus('${k.id_kpi}', 'PUBLISHED')">
-                                <i class="bi bi-send-check"></i>
-                            </button>` : ''}
-                            ${k.status === 'PUBLISHED' ? `
-                            <button class="btn btn-outline-dark" title="Tutup KPI (Closed)" onclick="updateKpiStatus('${k.id_kpi}', 'CLOSED')">
-                                <i class="bi bi-archive"></i>
-                            </button>` : ''}
-                            <button class="btn btn-outline-danger" title="Hapus KPI" onclick="deleteKpi('${k.id_kpi}', '${k.nama_kpi}')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        ` : ''}
+                    <div class="row-actions">
+                        ${iconBtn('bi-eye', 'Detail dan aktivitas', `openKpiDetail(${jsArg(k.id_kpi)})`)}
+                        ${isKaprod && k.status === 'DRAFT' ? iconBtn('bi-send-check', 'Terbitkan KPI', `updateKpiStatus(${jsArg(k.id_kpi)}, 'PUBLISHED')`, 'primary') : ''}
+                        ${isKaprod && k.status === 'PUBLISHED' ? iconBtn('bi-archive', 'Tutup KPI', `updateKpiStatus(${jsArg(k.id_kpi)}, 'CLOSED')`) : ''}
+                        ${isKaprod ? iconBtn('bi-trash', 'Hapus KPI', `deleteKpi(${jsArg(k.id_kpi)}, ${jsArg(k.nama_kpi)})`, 'danger') : ''}
                     </div>
                 </td>
             </tr>
@@ -884,18 +990,16 @@ async function openKpiModal() {
     const { data: candidates } = await db.from('karyawan').select('*').in('role', ['SEKPROD', 'KAUPT']).eq('status_aktif', true);
     const container = document.getElementById('pjCandidateList');
     if (candidates && candidates.length > 0) {
-        container.innerHTML = candidates.map(c => `
+        container.innerHTML = candidates.map((c, i) => `
             <div class="col-md-6">
-                <div class="border rounded-2 p-2 d-flex align-items-center gap-2">
-                    <input class="form-check-input mt-0" type="checkbox" name="kpiPj" value="${c.npk}" id="pj_${c.npk}">
-                    <label class="form-check-label small flex-grow-1" for="pj_${c.npk}">
-                        <strong>${c.nama_karyawan}</strong> (${c.role})
-                    </label>
-                </div>
+                <label class="decision-option" for="pj_${i}">
+                    <input class="form-check-input" type="checkbox" name="kpiPj" value="${esc(c.npk)}" id="pj_${i}">
+                    <span><strong>${esc(c.nama_karyawan)}</strong><span>${esc(roleLabel(c.role))}</span></span>
+                </label>
             </div>
         `).join('');
     } else {
-        container.innerHTML = `<div class="col-12 text-muted small">Tidak ada akun SEKPROD/KAUPT aktif.</div>`;
+        container.innerHTML = `<div class="col-12 text-muted small">Belum ada akun Sekprod atau Ka. UPT yang aktif.</div>`;
     }
 
     const modal = new bootstrap.Modal(document.getElementById('modalKpi'));
@@ -937,11 +1041,11 @@ async function handleSaveKpi(e) {
             await db.from('kpi_penanggung_jawab').insert(pjRows);
         }
 
-        Swal.fire('Berhasil!', `Header KPI ${nama} berhasil dibuat.`, 'success');
+        Swal.fire({ icon: 'success', title: 'KPI dibuat' });
         bootstrap.Modal.getInstance(document.getElementById('modalKpi')).hide();
         loadKpi();
     } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        Swal.fire('Gagal', err.message, 'error');
     } finally {
         btn.disabled = false;
     }
@@ -949,9 +1053,9 @@ async function handleSaveKpi(e) {
 
 async function updateKpiStatus(idKpi, newStatus) {
     const { error } = await db.from('kpi').update({ status: newStatus }).eq('id_kpi', idKpi);
-    if (error) Swal.fire('Error', error.message, 'error');
+    if (error) Swal.fire('Gagal', error.message, 'error');
     else {
-        Swal.fire('Status Diubah', `Status KPI berhasil diubah menjadi ${newStatus}.`, 'success');
+        Swal.fire({ icon: 'success', title: `Status KPI: ${statusLabel(newStatus)}` });
         loadKpi();
     }
 }
@@ -960,24 +1064,23 @@ async function deleteKpi(idKpi, nama) {
     // Check if KPI has activities
     const { count } = await db.from('detail_kpi').select('*', { count: 'exact', head: true }).eq('id_kpi', idKpi);
     if (count > 0) {
-        Swal.fire('Tidak Dapat Dihapus', `KPI ini memiliki ${count} aktivitas terkait. Sesuai aturan bisnis, nonaktifkan (Closed) saja.`, 'warning');
+        Swal.fire('KPI belum bisa dihapus', `KPI ini masih punya ${count} aktivitas. Gunakan Tutup supaya riwayatnya tetap tersimpan.`, 'warning');
         return;
     }
 
     const res = await Swal.fire({
         title: 'Hapus KPI?',
-        text: `Hapus Header KPI "${nama}"?`,
-        icon: 'warning',
+        text: `"${nama}" akan dihapus permanen.`,
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
-        confirmButtonText: 'Ya, Hapus'
+        confirmButtonText: 'Hapus KPI'
     });
     if (res.isConfirmed) {
         await db.from('kpi_penanggung_jawab').delete().eq('id_kpi', idKpi);
         const { error } = await db.from('kpi').delete().eq('id_kpi', idKpi);
-        if (error) Swal.fire('Error', error.message, 'error');
+        if (error) Swal.fire('Gagal', error.message, 'error');
         else {
-            Swal.fire('Terhapus', 'KPI berhasil dihapus.', 'success');
+            Swal.fire({ icon: 'success', title: 'KPI dihapus' });
             loadKpi();
         }
     }
@@ -1006,10 +1109,10 @@ async function populatePicSelect(selectedNpk = '') {
         }
     }
 
-    let options = `<option value="">-- Tanpa PIC Langsung (Status OPEN, diambil mandiri oleh PIC) --</option>`;
+    let options = `<option value="">Belum ditentukan, PIC mengambil sendiri</option>`;
     picUsers.forEach(u => {
         const isSelected = (u.npk === selectedNpk) ? 'selected' : '';
-        options += `<option value="${u.npk}" ${isSelected}>${u.nama_karyawan} (${u.npk}) ${u.bagian ? '- ' + u.bagian : ''}</option>`;
+        options += `<option value="${esc(u.npk)}" ${isSelected}>${esc(u.nama_karyawan)}${u.bagian ? ', ' + esc(u.bagian) : ''}</option>`;
     });
     select.innerHTML = options;
 }
@@ -1023,7 +1126,9 @@ async function openKpiDetail(idKpi) {
 
     document.getElementById('detailKpiId').innerText = kpi.id_kpi;
     document.getElementById('detailKpiTitle').innerText = kpi.nama_kpi;
-    document.getElementById('detailKpiStatusBadge').innerText = kpi.status;
+    const statusEl = document.getElementById('detailKpiStatusBadge');
+    statusEl.innerText = statusLabel(kpi.status);
+    statusEl.className = 'tag tag-' + ((STATUS_INFO[kpi.status] || [])[1] || 'neutral');
 
     // Check if user is PJ or KAPROD
     const { data: pjs } = await db.from('kpi_penanggung_jawab').select('npk').eq('id_kpi', idKpi);
@@ -1047,15 +1152,15 @@ async function openKpiDetail(idKpi) {
 
     const desc = document.getElementById('kpiWeightStatusDesc');
     if (Math.abs(totalWeightUsed - 100) < 0.01) {
-        desc.innerHTML = `<span class="badge bg-success">Lengkap 100%</span> Total bobot seluruh detail aktivitas telah tepat mencapai 100.00%.`;
+        desc.textContent = 'Bobot sudah lengkap 100%.';
     } else {
-        desc.innerHTML = `<span class="badge bg-warning text-dark">Sisa Bobot: ${currentKpiAvailableBobot}%</span> Aturan: Total bobot aktivitas dalam 1 KPI wajib berjumlah 100% sebelum dapat diselesaikan.`;
+        desc.textContent = `Sisa bobot ${currentKpiAvailableBobot}%. Total bobot semua aktivitas harus tepat 100% sebelum KPI bisa selesai.`;
     }
 
     // Render table
     const tbody = document.getElementById('activityTableBody');
     if (!currentKpiActivities || currentKpiActivities.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada aktivitas di bawah KPI ini.</td></tr>`;
+        tbody.innerHTML = emptyRow(8, canManage ? 'Belum ada aktivitas. Tambahkan lewat tombol Tambah aktivitas.' : 'Belum ada aktivitas di KPI ini.', 'bi-list-check');
         return;
     }
 
@@ -1063,42 +1168,22 @@ async function openKpiDetail(idKpi) {
         const isMyPic = (a.npk_pic && a.npk_pic === currentUser.npk);
         const canUpload = isMyPic && (a.status === 'PICKED' || a.status === 'REVISION');
         const canEditOrDelete = canManage && (a.status === 'OPEN' || a.status === 'PICKED' || a.status === 'REVISION');
-        const escapedNama = (a.nama_aktivitas_kpi || '').replace(/'/g, "\\'");
 
         return `
         <tr>
-            <td><code>${a.id_detail_kpi}</code></td>
-            <td class="fw-bold text-dark">${a.nama_aktivitas_kpi}</td>
-            <td class="fw-bold text-primary">${a.persentase_bobot}%</td>
-            <td>
-                <div class="d-flex align-items-center gap-2">
-                    <div class="progress flex-grow-1 progress-compact">
-                        <div class="progress-bar bg-success" style="width: ${a.persentase_progres}%"></div>
-                    </div>
-                    <span class="small fw-bold">${a.persentase_progres}%</span>
-                </div>
-            </td>
+            ${idCell(a.id_detail_kpi)}
+            <td class="cell-name fw-semibold text-dark">${esc(a.nama_aktivitas_kpi)}</td>
+            <td class="text-end fw-semibold">${esc(a.persentase_bobot)}%</td>
+            <td>${progressCell(a.persentase_progres, { neutral: a.status !== 'DONE' })}</td>
             <td>${formatActivitySchedule(a.start_date, a.end_date, a.deadline)}</td>
-            <td>
-                ${a.npk_pic ? `<span class="badge bg-primary-subtle text-primary border">${getUserName(a.npk_pic)}</span>` : '<span class="badge bg-light text-muted border">Belum Ada PIC</span>'}
-            </td>
-            <td>
-                <span class="badge ${a.status === 'DONE' ? 'bg-success' : (a.status === 'SUBMITTED' ? 'bg-warning text-dark' : (a.status === 'REVISION' ? 'bg-danger' : (a.status === 'PICKED' ? 'bg-info text-dark' : 'bg-primary')))}">${a.status}</span>
-            </td>
+            <td>${a.npk_pic ? esc(getUserName(a.npk_pic)) : '<span class="text-muted">Belum ada</span>'}</td>
+            <td>${statusTag(a.status)}</td>
             <td class="text-end">
-                <div class="btn-group btn-group-sm">
-                    ${canUpload ? `
-                    <button class="btn btn-success" title="Upload Activity Plan & Bukti Progres" onclick="openUploadModal('${a.id_detail_kpi}', '${escapedNama}')">
-                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload
-                    </button>` : ''}
-                    ${canEditOrDelete ? `
-                    <button class="btn btn-outline-primary" title="Edit Aktivitas" onclick="openEditActivityModal('${a.id_detail_kpi}')">
-                        <i class="bi bi-pencil-square"></i>
-                    </button>
-                    <button class="btn btn-outline-danger" title="Hapus Aktivitas" onclick="deleteActivity('${a.id_detail_kpi}', '${escapedNama}')">
-                        <i class="bi bi-trash"></i>
-                    </button>` : ''}
-                    ${(!canUpload && !canEditOrDelete) ? `<span class="text-muted small">-</span>` : ''}
+                <div class="row-actions">
+                    ${canUpload ? `<button class="btn btn-sm btn-primary" onclick="openUploadModal(${jsArg(a.id_detail_kpi)}, ${jsArg(a.nama_aktivitas_kpi)})"><i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Unggah</button>` : ''}
+                    ${canEditOrDelete ? iconBtn('bi-pencil', 'Ubah aktivitas', `openEditActivityModal(${jsArg(a.id_detail_kpi)})`) : ''}
+                    ${canEditOrDelete ? iconBtn('bi-trash', 'Hapus aktivitas', `deleteActivity(${jsArg(a.id_detail_kpi)}, ${jsArg(a.nama_aktivitas_kpi)})`, 'danger') : ''}
+                    ${(!canUpload && !canEditOrDelete) ? '<span class="text-muted">-</span>' : ''}
                 </div>
             </td>
         </tr>
@@ -1110,7 +1195,7 @@ async function openActivityModal() {
     if (form) form.reset();
 
     const titleEl = document.getElementById('modalActivityTitle');
-    if (titleEl) titleEl.innerText = 'Tambah Detail Aktivitas';
+    if (titleEl) titleEl.innerText = 'Tambah aktivitas';
 
     const editIdEl = document.getElementById('actEditId');
     if (editIdEl) editIdEl.value = '';
@@ -1128,12 +1213,12 @@ async function openActivityModal() {
     const bobotInput = document.getElementById('actBobot');
     if (bobotInput) {
         bobotInput.max = currentKpiAvailableBobot;
-        bobotInput.placeholder = 'Maksimal: ' + currentKpiAvailableBobot + '%';
+        bobotInput.placeholder = 'Maksimal ' + currentKpiAvailableBobot;
         bobotInput.value = '';
     }
 
     const btn = document.getElementById('btnSaveActivity');
-    if (btn) btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Simpan Aktivitas';
+    if (btn) btn.textContent = 'Simpan aktivitas';
 
     await populatePicSelect('');
 
@@ -1149,14 +1234,14 @@ async function openEditActivityModal(idDetailKpi) {
     if (!act) {
         const { data, error } = await db.from('detail_kpi').select('*').eq('id_detail_kpi', idDetailKpi).single();
         if (error || !data) {
-            Swal.fire('Error', 'Data aktivitas tidak ditemukan.', 'error');
+            Swal.fire('Gagal', 'Data aktivitas tidak ditemukan.', 'error');
             return;
         }
         act = data;
     }
 
     const titleEl = document.getElementById('modalActivityTitle');
-    if (titleEl) titleEl.innerText = 'Edit Detail Aktivitas';
+    if (titleEl) titleEl.innerText = 'Ubah aktivitas';
 
     const editIdEl = document.getElementById('actEditId');
     if (editIdEl) editIdEl.value = act.id_detail_kpi;
@@ -1173,14 +1258,14 @@ async function openEditActivityModal(idDetailKpi) {
     const maxAllowedBobot = (parseFloat(currentKpiAvailableBobot) + currentActBobot).toFixed(2);
 
     const sisaBobotEl = document.getElementById('actSisaBobot');
-    if (sisaBobotEl) sisaBobotEl.innerText = maxAllowedBobot + '% (sisa ' + currentKpiAvailableBobot + '% + bobot ini ' + currentActBobot + '%)';
+    if (sisaBobotEl) sisaBobotEl.innerText = maxAllowedBobot + '% (sisa ' + currentKpiAvailableBobot + '% ditambah bobot aktivitas ini ' + currentActBobot + '%)';
 
     document.getElementById('actNama').value = act.nama_aktivitas_kpi || '';
 
     const bobotInput = document.getElementById('actBobot');
     if (bobotInput) {
         bobotInput.max = maxAllowedBobot;
-        bobotInput.placeholder = 'Maksimal: ' + maxAllowedBobot + '%';
+        bobotInput.placeholder = 'Maksimal ' + maxAllowedBobot;
         bobotInput.value = currentActBobot;
     }
 
@@ -1188,7 +1273,7 @@ async function openEditActivityModal(idDetailKpi) {
     document.getElementById('actEndDate').value = act.end_date || act.deadline || '';
 
     const btn = document.getElementById('btnSaveActivity');
-    if (btn) btn.innerHTML = '<i class="bi bi-save me-1"></i> Simpan Perubahan';
+    if (btn) btn.textContent = 'Simpan perubahan';
 
     await populatePicSelect(act.npk_pic || '');
 
@@ -1206,28 +1291,28 @@ async function handleSaveActivity(e) {
     const selectedPic = document.getElementById('actPicSelect').value || null;
 
     if (!nama) {
-        Swal.fire('Validasi Gagal', 'Nama aktivitas kegiatan wajib diisi.', 'warning');
+        Swal.fire('Data belum lengkap', 'Nama aktivitas kegiatan wajib diisi.', 'warning');
         return;
     }
 
     if (isNaN(bobot) || bobot <= 0) {
-        Swal.fire('Validasi Gagal', 'Persentase bobot harus lebih besar dari 0%.', 'warning');
+        Swal.fire('Data belum lengkap', 'Persentase bobot harus lebih besar dari 0%.', 'warning');
         return;
     }
 
     if (!endDate) {
-        Swal.fire('Validasi Gagal', 'Tanggal selesai (End Date) wajib diisi.', 'warning');
+        Swal.fire('Data belum lengkap', 'Tanggal selesai (End Date) wajib diisi.', 'warning');
         return;
     }
 
     if (startDate && endDate && startDate > endDate) {
-        Swal.fire('Validasi Tanggal', 'Tanggal mulai tidak boleh melebihi tanggal selesai.', 'warning');
+        Swal.fire('Tanggal belum sesuai', 'Tanggal mulai tidak boleh melebihi tanggal selesai.', 'warning');
         return;
     }
 
     const btn = document.getElementById('btnSaveActivity');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> Menyimpan…';
 
     try {
         if (editId) {
@@ -1237,9 +1322,9 @@ async function handleSaveActivity(e) {
             const maxAllowedBobot = parseFloat(currentKpiAvailableBobot) + currentActBobot;
 
             if (bobot > (maxAllowedBobot + 0.001)) {
-                Swal.fire('Validasi Bobot Gagal', `Bobot yang dimasukkan (${bobot}%) melebihi sisa alokasi maksimal (${maxAllowedBobot.toFixed(2)}%). Total bobot seluruh aktivitas dalam 1 KPI tidak boleh melebihi 100%.`, 'error');
+                Swal.fire('Bobot melebihi sisa', `Bobot yang dimasukkan (${bobot}%) melebihi sisa alokasi maksimal (${maxAllowedBobot.toFixed(2)}%). Total bobot seluruh aktivitas dalam 1 KPI tidak boleh melebihi 100%.`, 'error');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-save me-1"></i> Simpan Perubahan';
+                btn.textContent = 'Simpan perubahan';
                 return;
             }
 
@@ -1268,13 +1353,13 @@ async function handleSaveActivity(e) {
 
             if (error) throw error;
 
-            Swal.fire('Berhasil!', `Perubahan aktivitas "${nama}" (${editId}) berhasil disimpan.`, 'success');
+            Swal.fire({ icon: 'success', title: 'Perubahan aktivitas disimpan' });
         } else {
             // CREATE MODE
             if (bobot > (parseFloat(currentKpiAvailableBobot) + 0.001)) {
-                Swal.fire('Validasi Bobot Gagal', `Bobot yang dimasukkan (${bobot}%) melebihi sisa alokasi bobot (${currentKpiAvailableBobot}%). Total seluruh aktivitas dalam 1 KPI wajib berjumlah tepat 100%.`, 'error');
+                Swal.fire('Bobot melebihi sisa', `Bobot yang dimasukkan (${bobot}%) melebihi sisa alokasi bobot (${currentKpiAvailableBobot}%). Total seluruh aktivitas dalam 1 KPI wajib berjumlah tepat 100%.`, 'error');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i> Simpan Aktivitas';
+                btn.textContent = 'Simpan aktivitas';
                 return;
             }
 
@@ -1297,14 +1382,9 @@ async function handleSaveActivity(e) {
             if (error) throw error;
 
             const picName = selectedPic ? getUserName(selectedPic) : null;
-            const msg = selectedPic
-                ? `Aktivitas berhasil dibuat dan langsung ditugaskan ke <strong>${picName}</strong> dengan status <strong>PICKED</strong>.`
-                : 'Aktivitas berhasil ditambahkan dengan status <strong>OPEN</strong> (dapat diambil mandiri oleh PIC).';
-
             Swal.fire({
-                title: 'Berhasil!',
-                html: msg,
-                icon: 'success'
+                icon: 'success',
+                title: selectedPic ? `Aktivitas ditugaskan ke ${picName}` : 'Aktivitas ditambahkan, menunggu PIC'
             });
         }
 
@@ -1313,29 +1393,26 @@ async function handleSaveActivity(e) {
         if (modalInst) modalInst.hide();
         openKpiDetail(currentSelectedKpiId);
     } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        Swal.fire('Gagal', err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = editId
-            ? '<i class="bi bi-save me-1"></i> Simpan Perubahan'
-            : '<i class="bi bi-plus-circle me-1"></i> Simpan Aktivitas';
+        btn.textContent = editId ? 'Simpan perubahan' : 'Simpan aktivitas';
     }
 }
 
 async function deleteActivity(idDetailKpi, nama) {
     const res = await Swal.fire({
-        title: 'Hapus Aktivitas?',
-        text: `Hapus aktivitas "${nama}" (${idDetailKpi})?`,
-        icon: 'warning',
+        title: 'Hapus aktivitas?',
+        text: `"${nama}" akan dihapus permanen.`,
         showCancelButton: true,
         confirmButtonColor: '#EF4444',
-        confirmButtonText: 'Ya, Hapus'
+        confirmButtonText: 'Hapus aktivitas'
     });
     if (res.isConfirmed) {
         const { error } = await db.from('detail_kpi').delete().eq('id_detail_kpi', idDetailKpi);
-        if (error) Swal.fire('Error', error.message, 'error');
+        if (error) Swal.fire('Gagal', error.message, 'error');
         else {
-            Swal.fire('Terhapus', `Aktivitas ${idDetailKpi} telah dihapus.`, 'success');
+            Swal.fire({ icon: 'success', title: 'Aktivitas dihapus' });
             openKpiDetail(currentSelectedKpiId);
         }
     }
@@ -1347,37 +1424,32 @@ async function deleteActivity(idDetailKpi, nama) {
 async function loadPickList() {
     if (!currentUser) return;
     const tbody = document.getElementById('pickTableBody');
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4">Memuat aktivitas OPEN...</td></tr>`;
+    tbody.innerHTML = loadingRow(7, 'Memuat aktivitas…');
 
     const { data: acts, error } = await db.from('detail_kpi')
         .select('*')
         .eq('status', 'OPEN');
 
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${error.message}</td></tr>`;
+        tbody.innerHTML = errorRow(7, error.message);
         return;
     }
 
     if (!acts || acts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Saat ini tidak ada aktivitas berstatus OPEN.</td></tr>`;
+        tbody.innerHTML = emptyRow(7, 'Semua aktivitas sudah punya PIC. Aktivitas baru akan muncul di sini.');
         return;
     }
 
     tbody.innerHTML = acts.map(a => `
         <tr>
-            <td><code>${a.id_detail_kpi}</code></td>
-            <td>
-                <div class="fw-semibold text-dark">${getKpiName(a.id_kpi)}</div>
-                <small class="text-muted">${a.id_kpi}</small>
-            </td>
-            <td><strong class="text-dark">${a.nama_aktivitas_kpi}</strong></td>
-            <td class="fw-bold text-primary">${a.persentase_bobot}%</td>
+            ${idCell(a.id_detail_kpi)}
+            <td>${esc(getKpiName(a.id_kpi))}<span class="cell-sub id-code">${esc(a.id_kpi)}</span></td>
+            <td class="cell-name fw-semibold text-dark">${esc(a.nama_aktivitas_kpi)}</td>
+            <td class="text-end fw-semibold">${esc(a.persentase_bobot)}%</td>
             <td>${formatActivitySchedule(a.start_date, a.end_date, a.deadline)}</td>
-            <td><small>${getUserName(a.dibuat_oleh)}</small></td>
+            <td>${esc(getUserName(a.dibuat_oleh))}</td>
             <td class="text-end">
-                <button class="btn btn-navy btn-sm" onclick="pickActivityDirect('${a.id_detail_kpi}', '${a.nama_aktivitas_kpi}')">
-                    <i class="bi bi-hand-index-thumb me-1"></i> Ambil Aktivitas
-                </button>
+                <button class="btn btn-primary btn-sm" onclick="pickActivityDirect(${jsArg(a.id_detail_kpi)}, ${jsArg(a.nama_aktivitas_kpi)})"><i class="bi bi-hand-index me-1" aria-hidden="true"></i>Ambil aktivitas</button>
             </td>
         </tr>
     `).join('');
@@ -1385,12 +1457,10 @@ async function loadPickList() {
 
 async function pickActivityDirect(idDetailKpi, nama) {
     const res = await Swal.fire({
-        title: 'Ambil Aktivitas?',
-        text: `Anda akan menjadi PIC resmi untuk aktivitas "${nama}".`,
-        icon: 'question',
+        title: 'Ambil aktivitas ini?',
+        text: `Anda akan menjadi PIC untuk "${nama}" dan bertanggung jawab mengunggah progresnya.`,
         showCancelButton: true,
-        confirmButtonColor: '#1E3A8A',
-        confirmButtonText: 'Ya, Ambil Aktivitas'
+        confirmButtonText: 'Ambil aktivitas'
     });
 
     if (res.isConfirmed) {
@@ -1401,7 +1471,7 @@ async function pickActivityDirect(idDetailKpi, nama) {
         if (error) {
             Swal.fire('Gagal', error.message, 'error');
         } else {
-            Swal.fire('Berhasil!', 'Aktivitas berhasil diambil. Silakan kerjakan dan unggah progres.', 'success');
+            Swal.fire({ icon: 'success', title: 'Aktivitas masuk ke Aktivitas saya' });
             switchView('my-activities');
         }
     }
@@ -1413,50 +1483,35 @@ async function pickActivityDirect(idDetailKpi, nama) {
 async function loadMyActivities() {
     if (!currentUser) return;
     const tbody = document.getElementById('myActivitiesTableBody');
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4">Memuat aktivitas Anda...</td></tr>`;
+    tbody.innerHTML = loadingRow(8, 'Memuat aktivitas Anda…');
 
     const { data: acts, error } = await db.from('detail_kpi')
         .select('*')
         .eq('npk_pic', currentUser.npk);
 
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${error.message}</td></tr>`;
+        tbody.innerHTML = errorRow(8, error.message);
         return;
     }
 
     if (!acts || acts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Anda belum memiliki aktivitas yang diambil.</td></tr>`;
+        tbody.innerHTML = emptyRow(8, 'Anda belum memegang aktivitas. Ambil aktivitas lewat menu Ambil aktivitas.');
         return;
     }
 
     tbody.innerHTML = acts.map(a => `
         <tr>
-            <td><code>${a.id_detail_kpi}</code></td>
-            <td>
-                <div class="fw-semibold text-dark">${getKpiName(a.id_kpi)}</div>
-                <small class="text-muted">${a.id_kpi}</small>
-            </td>
-            <td><strong class="text-dark">${a.nama_aktivitas_kpi}</strong></td>
-            <td class="fw-bold text-primary">${a.persentase_bobot}%</td>
-            <td>
-                <div class="d-flex align-items-center gap-2">
-                    <div class="progress flex-grow-1 progress-compact">
-                        <div class="progress-bar bg-success" style="width: ${a.persentase_progres}%"></div>
-                    </div>
-                    <span class="small fw-bold">${a.persentase_progres}%</span>
-                </div>
-            </td>
+            ${idCell(a.id_detail_kpi)}
+            <td>${esc(getKpiName(a.id_kpi))}<span class="cell-sub id-code">${esc(a.id_kpi)}</span></td>
+            <td class="cell-name fw-semibold text-dark">${esc(a.nama_aktivitas_kpi)}</td>
+            <td class="text-end fw-semibold">${esc(a.persentase_bobot)}%</td>
+            <td>${progressCell(a.persentase_progres, { neutral: a.status !== 'DONE' })}</td>
             <td>${formatActivitySchedule(a.start_date, a.end_date, a.deadline)}</td>
-            <td>
-                <span class="badge ${a.status === 'DONE' ? 'bg-success' : (a.status === 'SUBMITTED' ? 'bg-warning text-dark' : (a.status === 'REVISION' ? 'bg-danger' : 'bg-primary'))}">
-                    ${a.status}
-                </span>
-            </td>
+            <td>${statusTag(a.status)}</td>
             <td class="text-end">
-                ${(a.status === 'PICKED' || a.status === 'REVISION') ? `
-                <button class="btn btn-navy btn-sm" onclick="openUploadModal('${a.id_detail_kpi}', '${(a.nama_aktivitas_kpi || '').replace(/'/g, "\\'")}')">
-                    <i class="bi bi-cloud-arrow-up-fill me-1"></i> Unggah Progres
-                </button>` : '<span class="small text-muted">Menunggu Review</span>'}
+                ${(a.status === 'PICKED' || a.status === 'REVISION')
+                    ? `<button class="btn btn-primary btn-sm" onclick="openUploadModal(${jsArg(a.id_detail_kpi)}, ${jsArg(a.nama_aktivitas_kpi)})"><i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Unggah progres</button>`
+                    : '<span class="small text-muted">Menunggu review</span>'}
             </td>
         </tr>
     `).join('');
@@ -1473,16 +1528,12 @@ async function openUploadModal(idDetailKpi, nama) {
     }
 
     if (!act) {
-        Swal.fire('Error', 'Data detail aktivitas tidak ditemukan.', 'error');
+        Swal.fire('Gagal', 'Data detail aktivitas tidak ditemukan.', 'error');
         return;
     }
 
     if (act.npk_pic !== currentUser.npk) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Akses Ditolak',
-            html: `Hanya PIC penanggung jawab (<strong>${getUserName(act.npk_pic)}</strong>) yang berhak mengunggah berkas untuk aktivitas ini.`
-        });
+        Swal.fire('Bukan aktivitas Anda', `Hanya PIC aktivitas ini (${getUserName(act.npk_pic)}) yang bisa mengunggah progres.`, 'error');
         return;
     }
 
@@ -1510,17 +1561,17 @@ async function handleSubmitUpload(e) {
     const buktiFileInput = document.getElementById('uploadBuktiFile');
 
     if (isNaN(persentase) || persentase < 0 || persentase > 100) {
-        Swal.fire('Validasi Gagal', 'Persentase progres harus berupa angka antara 0% dan 100%.', 'warning');
+        Swal.fire('Progres belum valid', 'Isi progres dengan angka 0 sampai 100.', 'warning');
         return;
     }
 
     if (!planFileInput || !planFileInput.files || planFileInput.files.length === 0) {
-        Swal.fire('File Diperlukan', 'Harap pilih berkas Activity Plan (Rencana Aktivitas).', 'warning');
+        Swal.fire('Berkas belum dipilih', 'Pilih berkas rencana aktivitas.', 'warning');
         return;
     }
 
     if (buktiFileInput && (!buktiFileInput.files || buktiFileInput.files.length === 0)) {
-        Swal.fire('File Diperlukan', 'Harap pilih berkas Bukti Progres / Capaian.', 'warning');
+        Swal.fire('Berkas belum dipilih', 'Pilih berkas bukti progres.', 'warning');
         return;
     }
 
@@ -1529,13 +1580,13 @@ async function handleSubmitUpload(e) {
     const maxSizeBytes = 5 * 1024 * 1024;
 
     if (planFile.size > maxSizeBytes || buktiFile.size > maxSizeBytes) {
-        Swal.fire('Ukuran Terlalu Besar', 'Maksimal ukuran masing-masing berkas adalah 5 MB.', 'warning');
+        Swal.fire('Berkas terlalu besar', 'Ukuran tiap berkas maksimal 5 MB.', 'warning');
         return;
     }
 
     const btn = document.getElementById('btnSubmitUpload');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Mengunggah Berkas...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> Mengunggah…';
 
     try {
         const readFileData = (f) => new Promise((resolve, reject) => {
@@ -1580,11 +1631,7 @@ async function handleSubmitUpload(e) {
 
         if (actErr) throw actErr;
 
-        Swal.fire({
-            title: 'Berhasil Diunggah!',
-            html: `Berkas <b>Activity Plan</b> dan <b>Bukti Progres</b> dengan capaian <b>${persentase}%</b> berhasil dikirimkan. Status aktivitas kini menjadi <b>SUBMITTED</b> untuk diverifikasi oleh reviewer.`,
-            icon: 'success'
-        });
+        Swal.fire({ icon: 'success', title: `Progres ${persentase}% diajukan ke level 1` });
 
         const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalUpload'));
         if (modalInst) modalInst.hide();
@@ -1595,10 +1642,10 @@ async function handleSubmitUpload(e) {
         loadMyActivities();
         loadDashboard();
     } catch (err) {
-        Swal.fire('Gagal Mengunggah', err.message, 'error');
+        Swal.fire('Unggahan gagal', err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> Kirim Laporan Progres';
+        btn.textContent = 'Ajukan progres';
     }
 }
 
@@ -1608,35 +1655,33 @@ async function handleSubmitUpload(e) {
 async function loadApprovalL1() {
     if (!currentUser) return;
     const tbody = document.getElementById('approvalL1TableBody');
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4">Memuat pengajuan L1...</td></tr>`;
+    tbody.innerHTML = loadingRow(8, 'Memuat antrean…');
 
     const { data: acts, error } = await db.from('detail_kpi')
         .select('*')
         .eq('status', 'SUBMITTED');
 
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${error.message}</td></tr>`;
+        tbody.innerHTML = errorRow(8, error.message);
         return;
     }
 
     if (!acts || acts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada pengajuan aktivitas yang menunggu Approval Level 1.</td></tr>`;
+        tbody.innerHTML = emptyRow(8, 'Tidak ada progres yang menunggu verifikasi level 1.', 'bi-shield-check');
         return;
     }
 
     tbody.innerHTML = acts.map(a => `
         <tr>
-            <td><code>${a.id_detail_kpi}</code></td>
-            <td>${getKpiName(a.id_kpi)}</td>
-            <td><strong>${a.nama_aktivitas_kpi}</strong></td>
-            <td>${getUserName(a.npk_pic)}</td>
-            <td><span class="badge bg-warning text-dark">Diajukan</span></td>
+            ${idCell(a.id_detail_kpi)}
+            <td>${esc(getKpiName(a.id_kpi))}</td>
+            <td class="cell-name fw-semibold text-dark">${esc(a.nama_aktivitas_kpi)}</td>
+            <td>${esc(getUserName(a.npk_pic))}</td>
+            <td><span class="tag tag-neutral">${esc(a.persentase_progres ?? 0)}%</span></td>
             <td>${formatActivitySchedule(a.start_date, a.end_date, a.deadline)}</td>
-            <td><span class="badge bg-warning text-dark">${a.status}</span></td>
+            <td>${statusTag(a.status)}</td>
             <td class="text-end">
-                <button class="btn btn-navy btn-sm" onclick="openReviewModal('${a.id_detail_kpi}', 'L1')">
-                    <i class="bi bi-search me-1"></i> Tinjau & Verifikasi
-                </button>
+                <button class="btn btn-primary btn-sm" onclick="openReviewModal(${jsArg(a.id_detail_kpi)}, 'L1')"><i class="bi bi-search me-1" aria-hidden="true"></i>Tinjau dan verifikasi</button>
             </td>
         </tr>
     `).join('');
@@ -1645,35 +1690,33 @@ async function loadApprovalL1() {
 async function loadApprovalFinal() {
     if (!currentUser) return;
     const tbody = document.getElementById('approvalFinalTableBody');
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4">Memuat antrean Approval Final...</td></tr>`;
+    tbody.innerHTML = loadingRow(8, 'Memuat antrean…');
 
     const { data: acts, error } = await db.from('detail_kpi')
         .select('*')
         .eq('status', 'APPROVED_L1');
 
     if (error) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${error.message}</td></tr>`;
+        tbody.innerHTML = errorRow(8, error.message);
         return;
     }
 
     if (!acts || acts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada aktivitas yang menunggu persetujuan Final KAPROD.</td></tr>`;
+        tbody.innerHTML = emptyRow(8, 'Tidak ada aktivitas yang menunggu pengesahan final.', 'bi-patch-check');
         return;
     }
 
     tbody.innerHTML = acts.map(a => `
         <tr>
-            <td><code>${a.id_detail_kpi}</code></td>
-            <td>${getKpiName(a.id_kpi)}</td>
-            <td><strong>${a.nama_aktivitas_kpi}</strong></td>
-            <td>${getUserName(a.npk_pic)}</td>
-            <td><span class="badge bg-info text-dark">Lolos L1</span></td>
-            <td><strong>${a.persentase_bobot}%</strong></td>
-            <td><span class="badge bg-info text-dark">${a.status}</span></td>
+            ${idCell(a.id_detail_kpi)}
+            <td>${esc(getKpiName(a.id_kpi))}</td>
+            <td class="cell-name fw-semibold text-dark">${esc(a.nama_aktivitas_kpi)}</td>
+            <td>${esc(getUserName(a.npk_pic))}</td>
+            <td><span class="tag tag-neutral">${esc(a.persentase_progres ?? 0)}%</span></td>
+            <td class="text-end fw-semibold">${esc(a.persentase_bobot)}%</td>
+            <td>${statusTag(a.status)}</td>
             <td class="text-end">
-                <button class="btn btn-warning btn-sm" onclick="openReviewModal('${a.id_detail_kpi}', 'FINAL')">
-                    <i class="bi bi-patch-check-fill me-1"></i> Approval Final
-                </button>
+                <button class="btn btn-primary btn-sm" onclick="openReviewModal(${jsArg(a.id_detail_kpi)}, 'FINAL')"><i class="bi bi-patch-check me-1" aria-hidden="true"></i>Sahkan</button>
             </td>
         </tr>
     `).join('');
@@ -1686,13 +1729,13 @@ async function openReviewModal(idDetailKpi, level) {
     document.getElementById('formReview').reset();
     document.getElementById('reviewDetailId').value = idDetailKpi;
     document.getElementById('reviewLevel').value = level;
-    document.getElementById('reviewModalTitle').innerText = level === 'L1' ? 'Persetujuan Level 1 (SEKPROD / KAUPT)' : 'Persetujuan Final (KAPROD)';
+    document.getElementById('reviewModalTitle').innerText = level === 'L1' ? 'Verifikasi level 1' : 'Pengesahan final';
 
     const { data: act } = await db.from('detail_kpi').select('*').eq('id_detail_kpi', idDetailKpi).single();
     if (!act) return;
     currentReviewActivity = act;
 
-    document.getElementById('reviewKpiInfo').innerText = `KPI: ${getKpiName(act.id_kpi)}`;
+    document.getElementById('reviewKpiInfo').innerText = getKpiName(act.id_kpi);
     document.getElementById('reviewActTitle').innerText = act.nama_aktivitas_kpi;
     document.getElementById('reviewPicName').innerText = getUserName(act.npk_pic);
     document.getElementById('reviewBobot').innerText = act.persentase_bobot + '%';
@@ -1702,7 +1745,7 @@ async function openReviewModal(idDetailKpi, level) {
     if (uploads && uploads.length > 0) {
         latestUploadForReview = uploads[0];
         document.getElementById('reviewProgres').innerText = latestUploadForReview.persentase_progres + '%';
-        document.getElementById('reviewCatatanPic').innerText = latestUploadForReview.catatan || 'Tidak ada catatan keterangan.';
+        document.getElementById('reviewCatatanPic').innerText = latestUploadForReview.catatan || 'Tidak ada catatan.';
 
         let planName = '-';
         let planUrl = '#';
@@ -1725,7 +1768,8 @@ async function openReviewModal(idDetailKpi, level) {
         const planDlBtn = document.getElementById('reviewPlanDownload');
         if (planNameEl && planDlBtn) {
             planNameEl.innerText = planName;
-            if (planUrl && planUrl !== '#') {
+            planUrl = safeFileHref(planUrl);
+            if (planUrl) {
                 planDlBtn.href = planUrl;
                 planDlBtn.setAttribute('download', planName);
                 planDlBtn.classList.remove('d-none');
@@ -1738,7 +1782,8 @@ async function openReviewModal(idDetailKpi, level) {
         const buktiDlBtn = document.getElementById('reviewBuktiDownload');
         if (buktiNameEl && buktiDlBtn) {
             buktiNameEl.innerText = buktiName;
-            if (buktiUrl && buktiUrl !== '#') {
+            buktiUrl = safeFileHref(buktiUrl);
+            if (buktiUrl) {
                 buktiDlBtn.href = buktiUrl;
                 buktiDlBtn.setAttribute('download', buktiName);
                 buktiDlBtn.classList.remove('d-none');
@@ -1771,7 +1816,7 @@ async function handleSubmitReview(e) {
     const catatan = document.getElementById('reviewCatatan').value.trim();
 
     if (action === 'REJECT' && !catatan) {
-        Swal.fire('Catatan Wajib Diisi', 'Saat menolak (REJECT), Anda wajib menyertakan alasan revisi.', 'warning');
+        Swal.fire('Catatan belum diisi', 'Tulis bagian yang perlu direvisi supaya PIC tahu apa yang harus diperbaiki.', 'warning');
         return;
     }
 
@@ -1826,14 +1871,14 @@ async function handleSubmitReview(e) {
             }
         }
 
-        Swal.fire('Berhasil!', `Keputusan ${action} (${level}) berhasil diproses.`, 'success');
+        Swal.fire({ icon: 'success', title: action === 'APPROVE' ? (level === 'L1' ? 'Diteruskan ke pengesahan final' : 'Aktivitas disahkan') : 'Dikembalikan ke PIC untuk revisi' });
         bootstrap.Modal.getInstance(document.getElementById('modalReview')).hide();
         
         if (level === 'L1') loadApprovalL1();
         else loadApprovalFinal();
 
     } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        Swal.fire('Gagal', err.message, 'error');
     } finally {
         btn.disabled = false;
     }
@@ -1865,3 +1910,4 @@ window.loadApprovalFinal = loadApprovalFinal;
 window.changeGanttMonth = changeGanttMonth;
 window.resetGanttToCurrentMonth = resetGanttToCurrentMonth;
 window.renderGanttChart = renderGanttChart;
+window.closeSidebar = closeSidebar;

@@ -1,0 +1,14 @@
+# Dependensi & hasil build lokal (tidak dipakai aplikasi native)
+node_modules/
+dist/
+
+# Kredensial lokal: jangan di-commit
+.env
+.env.local
+.env.*.local
+
+# Pengaturan editor/agen lokal
+.claude/
+.vscode/
+.idea/
+*.log
